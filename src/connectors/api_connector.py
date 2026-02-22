@@ -1,0 +1,3 @@
+class APIMESConnector(BaseMESConnector):
+    def fetch_latest_builds(self):
+        ...

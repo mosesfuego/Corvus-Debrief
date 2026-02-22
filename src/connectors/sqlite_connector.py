@@ -1,0 +1,3 @@
+class SQLiteMESConnector(BaseMESConnector):
+    def fetch_latest_builds(self):
+        ...

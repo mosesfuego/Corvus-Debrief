@@ -1,0 +1,3 @@
+class CSVMESConnector(BaseMESConnector):
+    def fetch_latest_builds(self):
+        ...
