@@ -75,9 +75,65 @@ python src/main.py --demo
 
 ### Running Tests
 
+#### Quick Test Run
+
 ```bash
+# Run all tests
 pytest tests/ -v
+
+# Run with coverage report
+pytest tests/ -v --cov=src --cov-report=term-missing
 ```
+
+#### Test Setup
+
+The test suite uses a SQLite test database. Initialize it first:
+
+```bash
+# Setup test database with sample manufacturing builds
+python tests/setup_test_db.py
+```
+
+This creates `tests/test_manufacturing.db` with 3 work orders covering all MES states:
+- **WO-2024001**: Complex Assembly (in progress, bottlenecked)
+- **WO-2024002**: Circuit Board Assembly (completed, high quality)
+- **WO-2024003**: Quality Test Run (at-risk, low yield)
+
+#### Test Categories
+
+| Test File | Coverage | Run Command |
+|-----------|----------|-------------|
+| `test_connectors.py` | MES connector, CSV/SQLite adapters | `pytest tests/test_connectors.py -v` |
+| `test_analytics.py` | Build metrics, bottleneck detection, cycle time analysis | `pytest tests/test_analytics.py -v` |
+| `test_reporting.py` | Report generation, templates, output formats | `pytest tests/test_reporting.py -v` |
+
+#### Running Specific Tests
+
+```bash
+# Run a specific test class
+pytest tests/test_analytics.py::TestBuildAnalyzer -v
+
+# Run a single test method
+pytest tests/test_connectors.py::TestCSVConnector::test_connect -v
+
+# Run tests matching a pattern
+pytest tests/ -v -k "bottleneck"
+```
+
+#### Test Configuration
+
+Tests use `pytest.ini` (auto-detected) or can be configured:
+
+```bash
+# Show detailed assertions
+pytest tests/ -v --tb=short
+
+# Run in parallel (requires pytest-xdist)
+pip install pytest-xdist
+pytest tests/ -n auto
+```
+
+---
 
 ---
 
