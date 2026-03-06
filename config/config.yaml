@@ -1,0 +1,8 @@
+mes_type: "csv"
+
+analytics:
+  delay_threshold_minutes: 0
+
+reporting:
+  output_dir: "./reports"
+  format: "console"
