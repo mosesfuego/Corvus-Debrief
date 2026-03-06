@@ -3,12 +3,12 @@ mes_type: "csv"
 analytics:
   delay_threshold_minutes: 0
 
+agents:
+  provider: "nim"
+  model: "moonshotai/kimi-k2.5"
+  api_key: ${NIM_API_KEY}
+  base_url: "https://integrate.api.nvidia.com/v1"
+
 reporting:
   output_dir: "./reports"
   format: "console"
-# config/config.yaml
-agents:
-  provider: "kimi"
-  model: "kimi-k2-5"
-  api_key: ${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}
-  base_url: "https://api.moonshot.cn/v1"

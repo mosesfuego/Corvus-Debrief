@@ -13,6 +13,7 @@ from agents.tools import (
     flag_for_team,
 )
 
+
 TOOL_SCHEMAS = [
     {
         "type": "function",
@@ -104,15 +105,16 @@ def dispatch_tool(tool_name: str, tool_input: dict, config: dict):
 def run_debrief_agent(config: dict) -> str:
     """
     Main agent loop.
+    think → tool → observe → think → recommend
     Returns final debrief string.
     """
     agent_config = config.get("agents", {})
 
     client = OpenAI(
         api_key=agent_config["api_key"],
-        base_url=agent_config.get("base_url")  # points to Kimi's endpoint
+        base_url=agent_config.get("base_url")
     )
-    model = agent_config.get("model", "kimi-k2-5")
+    model = agent_config.get("model", "moonshotai/kimi-k2.5")
 
     with open("prompts/system_prompt.txt", "r") as f:
         system_prompt = f.read()
@@ -129,14 +131,30 @@ def run_debrief_agent(config: dict) -> str:
             model=model,
             tools=TOOL_SCHEMAS,
             messages=messages,
-            temperature=0.6
+            temperature=1.00,
+            max_tokens=4096
         )
 
         message = response.choices[0].message
+        finish_reason = response.choices[0].finish_reason
 
-        # model wants to call a tool
-        if message.tool_calls:
-            messages.append(message)  # append assistant message with tool calls
+        # model wants to call tools
+        if finish_reason == "tool_calls" or message.tool_calls:
+            messages.append({
+                "role": "assistant",
+                "content": message.content or "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    }
+                    for tc in message.tool_calls
+                ]
+            })
 
             for tool_call in message.tool_calls:
                 print(f"[CORVUS] Calling tool: {tool_call.function.name}")
@@ -150,6 +168,16 @@ def run_debrief_agent(config: dict) -> str:
                 })
 
         # model is done reasoning
-        else:
+        elif finish_reason == "stop":
             print("[CORVUS] Debrief complete.\n")
-            return message.content
+            final = (
+                message.content
+                or getattr(message, "reasoning_content", None)
+                or "No debrief generated."
+            )
+            return final
+
+        # unexpected state
+        else:
+            print(f"[CORVUS] Unexpected finish reason: {finish_reason}")
+            break
