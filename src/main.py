@@ -1,18 +1,19 @@
+from connectors.factory import get_connector
+from analytics.build_metrics import BuildMetrics
+from reporting.debrief_template import DebriefGenerator
+from utils.config import load_config
+
 def main():
     config = load_config()
-
-    connector = MESConnector(config)
+    
+    connector = get_connector(config)
     analytics_engine = BuildMetrics(config)
     reporter = DebriefGenerator(config)
 
-    builds = connector.fetch_latest_builds()
-
+    builds = connector.fetch_builds()
     analyzed_builds = analytics_engine.evaluate(builds)
-
     debrief = reporter.generate(analyzed_builds)
-
     reporter.output(debrief)
-
 
 if __name__ == "__main__":
     main()
