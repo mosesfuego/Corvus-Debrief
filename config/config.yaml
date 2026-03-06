@@ -6,3 +6,9 @@ analytics:
 reporting:
   output_dir: "./reports"
   format: "console"
+# config/config.yaml
+agents:
+  provider: "kimi"
+  model: "kimi-k2-5"
+  api_key: ${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}
+  base_url: "https://api.moonshot.cn/v1"
