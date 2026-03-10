@@ -20,3 +20,9 @@ def load_config(path: str = "config/config.yaml") -> dict:
 
     resolved = re.sub(r'\$\{(\w+)\}', replace_env, raw)
     return yaml.safe_load(resolved)
+def load_onboarding(path: str = "config/onboarding.yaml") -> dict:
+    """Load onboarding config."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Onboarding file not found: {path}")
+    with open(path, "r") as f:
+        return yaml.safe_load(f)

@@ -1,8 +1,5 @@
 mes_type: "csv"
 
-analytics:
-  delay_threshold_minutes: 0
-
 agents:
   provider: "nim"
   model: "moonshotai/kimi-k2.5"

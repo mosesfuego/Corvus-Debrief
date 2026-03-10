@@ -83,14 +83,19 @@ TOOL_SCHEMAS = [
 ]
 
 
-def dispatch_tool(tool_name: str, tool_input: dict, config: dict):
+def dispatch_tool(
+    tool_name: str,
+    tool_input: dict,
+    config: dict,
+    onboarding: dict
+):
     """Execute a tool by name and return its result."""
     if tool_name == "get_build_metrics":
-        return get_build_metrics(config)
+        return get_build_metrics(config, onboarding)
     elif tool_name == "get_bottleneck_report":
-        return get_bottleneck_report(config)
+        return get_bottleneck_report(config, onboarding)
     elif tool_name == "get_at_risk_report":
-        return get_at_risk_report(config)
+        return get_at_risk_report(config, onboarding)
     elif tool_name == "flag_for_team":
         return flag_for_team(
             build_id=tool_input["build_id"],
@@ -102,7 +107,7 @@ def dispatch_tool(tool_name: str, tool_input: dict, config: dict):
         return {"error": f"Unknown tool: {tool_name}"}
 
 
-def run_debrief_agent(config: dict) -> str:
+def run_debrief_agent(config: dict, onboarding: dict) -> str:
     """
     Main agent loop.
     think → tool → observe → think → recommend
@@ -116,12 +121,34 @@ def run_debrief_agent(config: dict) -> str:
     )
     model = agent_config.get("model", "moonshotai/kimi-k2.5")
 
+    # build customer context from onboarding
+    terminology = onboarding.get("terminology", {})
+    teams = [t["name"] for t in onboarding.get("teams", [])]
+    shifts = onboarding.get("shifts", [])
+    company = onboarding.get("company", "the company")
+    site = onboarding.get("site", "the plant")
+
     with open("prompts/system_prompt.txt", "r") as f:
         system_prompt = f.read()
 
+    # append customer context dynamically
+    system_prompt += f"""
+
+---
+
+CUSTOMER CONTEXT:
+- Company: {company}, Site: {site}
+- Terminology: use "{terminology.get('build', 'build')}" instead of "build", "{terminology.get('operator', 'operator')}" instead of "operator"
+- Teams to route findings to: {', '.join(teams)}
+- Shifts: {', '.join([f"{s['name']} ({s['start']}–{s['end']})" for s in shifts])}
+"""
+
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": "Run a full debrief of the current factory floor. Use your tools to gather data before reasoning."}
+        {
+            "role": "user",
+            "content": "Run a full debrief of the current factory floor. Use your tools to gather data before reasoning."
+        }
     ]
 
     print("[CORVUS] Starting debrief...\n")
@@ -159,8 +186,12 @@ def run_debrief_agent(config: dict) -> str:
             for tool_call in message.tool_calls:
                 print(f"[CORVUS] Calling tool: {tool_call.function.name}")
                 tool_input = json.loads(tool_call.function.arguments)
-                result = dispatch_tool(tool_call.function.name, tool_input, config)
-
+                result = dispatch_tool(
+                    tool_call.function.name,
+                    tool_input,
+                    config,
+                    onboarding
+                )
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,

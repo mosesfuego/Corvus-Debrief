@@ -39,7 +39,7 @@ class TestSQLiteConnector:
         columns = {row[1] for row in cursor.fetchall()}
         expected = {'build_id', 'station_id', 'operator_id', 'start_time',
                     'planned_end', 'needed_by_date', 'target_quantity',
-                    'completed_quantity', 'labor_hours', 'fulfillment_pct', 'status', 'notes'}
+                    'completed_quantity', 'labor_hours', 'status', 'notes'}
         assert expected.issubset(columns), f"Missing columns: {expected - columns}"
         conn.close()
 

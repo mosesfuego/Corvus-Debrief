@@ -24,3 +24,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+reports/
+# Local config overrides (may contain API keys)
+#config/config.local.yaml
+#config/onboarding.local.yaml
