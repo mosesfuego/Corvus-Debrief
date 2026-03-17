@@ -73,34 +73,34 @@ class DebriefGenerator:
         return "\n".join(lines)
 
     def _extract_actions_for_team(self, debrief_text: str, team: dict) -> str:
-    team_name = team["name"].lower()
-    keywords = [k.lower() for k in team.get("cares_about", [])]
-    keywords.append(team_name)
-
-    watch_signals = team.get("watch_signals", [])
-    signal_terms = {
-        "stalled_build": ["blocked", "stalled", "waiting"],
-        "paused_build": ["paused", "break"],
-        "delayed_build": ["delayed", "at risk", "missed", "overtime"],
-        "unassigned_operator": ["unassigned", "unstaffed", "no operator"]
-    }
-    for signal in watch_signals:
-        keywords.extend(signal_terms.get(signal, []))
-
-    relevant_lines = []
-    for line in debrief_text.splitlines():
-        line_lower = line.lower()
-        # only pull lines that are action items with → routing
-        if "→" not in line:
-            continue
-        if any(kw in line_lower for kw in keywords):
-            relevant_lines.append(line.strip())
-
-    if relevant_lines:
-        return "\n".join(
-            f"      - {l.lstrip('- ')}" for l in relevant_lines
-        )
-    return "      - No direct action items this cycle. Monitor for changes."
+        team_name = team["name"].lower()
+        keywords = [k.lower() for k in team.get("cares_about", [])]
+        keywords.append(team_name)
+    
+        watch_signals = team.get("watch_signals", [])
+        signal_terms = {
+            "stalled_build": ["blocked", "stalled", "waiting"],
+            "paused_build": ["paused", "break"],
+            "delayed_build": ["delayed", "at risk", "missed", "overtime"],
+            "unassigned_operator": ["unassigned", "unstaffed", "no operator"]
+        }
+        for signal in watch_signals:
+            keywords.extend(signal_terms.get(signal, []))
+    
+        relevant_lines = []
+        for line in debrief_text.splitlines():
+            line_lower = line.lower()
+            # only pull lines that are action items with → routing
+            if "→" not in line:
+                continue
+            if any(kw in line_lower for kw in keywords):
+                relevant_lines.append(line.strip())
+    
+        if relevant_lines:
+            return "\n".join(
+                f"      - {l.lstrip('- ')}" for l in relevant_lines
+            )
+        return "      - No direct action items this cycle. Monitor for changes."
 
     def output(self, report: str):
         """Print to console."""
