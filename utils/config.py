@@ -1,7 +1,7 @@
 import yaml
 import os
 import re
-
+SUPPORTED_SCHEMA_VERSIONS = ["1.0"]
 def load_config(path: str = "config/config.yaml") -> dict:
     # auto-load .env if it exists
     _load_dotenv()
@@ -28,6 +28,14 @@ def load_onboarding(path: str = "config/onboarding.yaml") -> dict:
         raise FileNotFoundError(f"Onboarding file not found: {path}")
     with open(path, "r") as f:
         return yaml.safe_load(f)
+    version = data.get("schema_version")
+    if version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise ValueError(
+            f"Unsupported onboarding schema version: '{version}'\n"
+            f"Supported versions: {SUPPORTED_SCHEMA_VERSIONS}\n"
+            f"Check your onboarding.yaml."
+        )
+    return data
 
 
 def _load_dotenv(path: str = ".env"):
