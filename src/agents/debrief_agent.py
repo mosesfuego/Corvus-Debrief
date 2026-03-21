@@ -12,6 +12,7 @@ from agents.tools import (
     get_at_risk_report,
     flag_for_team,
 )
+from memory.memory import get_recent_context, save_run
 
 
 TOOL_SCHEMAS = [
@@ -101,7 +102,8 @@ def dispatch_tool(
             build_id=tool_input["build_id"],
             team=tool_input["team"],
             reason=tool_input["reason"],
-            urgency=tool_input.get("urgency", "normal")
+            urgency=tool_input.get("urgency", "normal"),
+            config=config
         )
     else:
         return {"error": f"Unknown tool: {tool_name}"}
@@ -128,10 +130,11 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
     company = onboarding.get("company", "the company")
     site = onboarding.get("site", "the plant")
 
+    # load system prompt
     with open("prompts/system_prompt.txt", "r") as f:
         system_prompt = f.read()
 
-    # append customer context dynamically
+    # inject customer context
     system_prompt += f"""
 
 ---
@@ -142,6 +145,10 @@ CUSTOMER CONTEXT:
 - Teams to route findings to: {', '.join(teams)}
 - Shifts: {', '.join([f"{s['name']} ({s['start']}–{s['end']})" for s in shifts])}
 """
+
+    # inject memory context
+    recent_context = get_recent_context(lookback=5)
+    system_prompt += f"\n\n---\n\n{recent_context}"
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -206,6 +213,13 @@ CUSTOMER CONTEXT:
                 or getattr(message, "reasoning_content", None)
                 or "No debrief generated."
             )
+
+            # save run to memory
+            save_run(
+                flags=config.get("_flags", []),
+                metrics=config.get("_metrics", [])
+            )
+
             return final
 
         # unexpected state

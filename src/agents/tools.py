@@ -31,9 +31,9 @@ def flag_for_team(
     build_id: str,
     team: str,
     reason: str,
-    urgency: str = "normal"
+    urgency: str = "normal",
+    config: dict = None
 ) -> dict:
-    """Routes a finding to a specific team."""
     flag = {
         "build_id": build_id,
         "team": team,
@@ -41,4 +41,9 @@ def flag_for_team(
         "urgency": urgency,
     }
     print(f"[CORVUS FLAG] → {team} | {urgency.upper()} | {build_id}: {reason}")
+
+    # accumulate flags in config for memory
+    if config is not None:
+        config.setdefault("_flags", []).append(flag)
+
     return flag
