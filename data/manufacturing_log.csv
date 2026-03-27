@@ -1,0 +1,13 @@
+Timestamp,Line_ID,Job_ID,Customer_Tier,Work_Center,Status,Error_Code,Operator_ID,Part_Number,Yield_Rate,Comments
+2026-03-24 04:05,Line 1,ACS-9921,Tier 1 (Aero),SMT_SIPLACE_A,Running,None,OP_442,C0402-GRM,0.99,Standard Aerospace Run
+2026-03-24 04:22,Line 3,ACS-2241,Tier 1 (Aero),SMT_SIPLACE_B,Stopped,ERR_FEED_MISMATCH,OP_119,R0603-10K,0.0,Feeder pos 22 mismatch
+2026-03-24 04:45,Line 2,ACS-5502,Tier 3 (Proto),SMT_SIPLACE_A,Changeover,None,OP_221,None,1.0,Switching Job 5501 to 5502
+2026-03-24 05:10,Line 4,ACS-8812,Tier 1 (Aero),AOI_01,Warning,FTY_LOW,OP_332,None,0.82,Yield drop Solder bridge pattern
+2026-03-24 05:30,Line 5,ACS-2198,Tier 2 (Ind),Kitting,Blocked,ERR_MAT_SHORTAGE,OP_088,C0402-100V,0.0,Broker buy substitution pending QA
+2026-03-24 05:55,Line 3,ACS-2241,Tier 1 (Aero),SMT_SIPLACE_B,Stopped,ERR_CERT_EXPIRED,OP_119,None,0.0,Operator cert expired for Aero Med
+2026-03-24 06:15,Line 6,ACS-7740,Tier 3 (Proto),SMT_SIPLACE_A,Running,None,OP_902,U-BQ247,0.95,Quick turn prototype run
+2026-03-24 06:40,Line 1,ACS-9921,Tier 1 (Aero),Conformal_Coat,Backlog,WIP_LIMIT_HIT,OP_551,None,1.0,32 units queued Oven temp drift
+2026-03-24 07:05,Line 3,ACS-2241,Tier 1 (Aero),SMT_SIPLACE_B,Stopped,ERR_FEED_MISMATCH,OP_119,R0603-10K,0.0,3rd occurrence Kitting process gap
+2026-03-24 07:30,Line 2,ACS-5502,Tier 3 (Proto),SMT_SIPLACE_A,Running,None,OP_221,R0402-1K,0.98,Production resumed post changeover
+2026-03-24 07:45,Line 4,ACS-8812,Tier 1 (Aero),Manual_Rework,Active,None,OP_105,None,1.0,Reworking AOI failures from 05:10
+2026-03-24 08:00,Line 5,ACS-2198,Tier 2 (Ind),Kitting,Blocked,ERR_MAT_SHORTAGE,OP_088,C0402-100V,0.0,Still blocked Supply Chain escalation

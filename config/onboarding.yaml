@@ -1,28 +1,39 @@
-schema_version: "1.0"
-company: "Acme Manufacturing"
-site: "Plant A"
-
+schema_version: '1.0'
+company: Acme Manufacturing
+site: Plant A
 teams:
-  - name: "Quality Assurance"
-    cares_about:
-      - "blocked builds"
-      - "inspection backlog"
-      - "yield issues"
-      - "QA clearance"
-    meeting: "Daily Quality Standup — 8:00am"
-
-  - name: "Production"
-    cares_about:
-      - "on-time delivery"
-      - "bottlenecks"
-      - "overtime decisions"
-      - "partial shipment"
-    meeting: "Morning Production Review — 7:30am"
-
-  - name: "Scheduling"
-    cares_about:
-      - "staffing gaps"
-      - "shift coverage"
-      - "unassigned operator"
-      - "at-risk orders"
-    meeting: "Weekly Planning — Monday 9:00am"
+- name: Quality Assurance
+  cares_about:
+  - blocked builds
+  - inspection backlog
+  - yield issues
+  - QA clearance
+  meeting: "Daily Quality Standup \u2014 8:00am"
+- name: Production
+  cares_about:
+  - on-time delivery
+  - bottlenecks
+  - overtime decisions
+  - partial shipment
+  meeting: "Morning Production Review \u2014 7:30am"
+- name: Scheduling
+  cares_about:
+  - staffing gaps
+  - shift coverage
+  - unassigned operator
+  - at-risk orders
+  meeting: "Weekly Planning \u2014 Monday 9:00am"
+csv_connector:
+  file_path: data/manufacturing_log.csv
+  mapping_fingerprint: e15e18ab2165
+  column_map:
+    build_id: Job_ID
+    station_id: Work_Center
+    operator_id: Operator_ID
+    start_time: Timestamp
+    status: Status
+    notes: Comments
+  status_map:
+    Running: In Progress
+    Stopped: Blocked
+    Changeover: In Progress

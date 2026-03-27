@@ -13,6 +13,73 @@
       "at_risk_count": 0,
       "flags": [],
       "blocked_stations": []
+    },
+    {
+      "timestamp": "2026-03-25T17:04:39.023615",
+      "blocked_count": 0,
+      "at_risk_count": 0,
+      "flags": [
+        {
+          "build_id": "csv-003",
+          "team": "Quality Assurance",
+          "urgency": "critical",
+          "reason": "Build csv-003 at WELD-01 is BLOCKED waiting on QA clearance. Only 10/50 units complete (20%). Needed by 12:00 today - will miss deadline without immediate clearance."
+        },
+        {
+          "build_id": "csv-005",
+          "team": "Production",
+          "urgency": "high",
+          "reason": "Build csv-005 at INSPECT-01 has no operator assigned. Afternoon shift inspection queue will start without coverage."
+        }
+      ],
+      "blocked_stations": []
+    },
+    {
+      "timestamp": "2026-03-25T17:22:21.602367",
+      "blocked_count": 0,
+      "at_risk_count": 0,
+      "flags": [
+        {
+          "build_id": "csv-003",
+          "team": "Quality Assurance",
+          "urgency": "critical",
+          "reason": "Build blocked at WELD-01 waiting on QA clearance. Already past deadline (needed by 2026-02-22T12:00:00)."
+        },
+        {
+          "build_id": "csv-005",
+          "team": "Scheduling",
+          "urgency": "high",
+          "reason": "Inspection work order at INSPECT-01 has no operator assigned (OP-NOTASSIGNED)"
+        }
+      ],
+      "blocked_stations": []
+    },
+    {
+      "timestamp": "2026-03-25T17:23:37.070023",
+      "blocked_count": 0,
+      "at_risk_count": 0,
+      "flags": [
+        {
+          "build_id": "csv-003",
+          "team": "Quality Assurance",
+          "urgency": "critical",
+          "reason": "Build blocked at WELD-01 waiting for QA clearance. Needed by 12:00 today, currently only 20% complete."
+        },
+        {
+          "build_id": "csv-005",
+          "team": "Scheduling",
+          "urgency": "high",
+          "reason": "Build at INSPECT-01 has no operator assigned (OP-NOTASSIGNED). Scheduled to start at 14:00 today."
+        }
+      ],
+      "blocked_stations": []
+    },
+    {
+      "timestamp": "2026-03-26T16:41:54.224897",
+      "blocked_count": 0,
+      "at_risk_count": 0,
+      "flags": [],
+      "blocked_stations": []
     }
   ]
 }

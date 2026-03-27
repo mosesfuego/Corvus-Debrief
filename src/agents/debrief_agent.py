@@ -82,7 +82,26 @@ TOOL_SCHEMAS = [
         }
     }
 ]
+def trim_tool_result(result, max_builds: int = 10) -> any:
+    """
+    Prevent tool results from overwhelming the context window.
+    Lists get capped. Extended fields get summarized.
+    """
+    if not isinstance(result, list):
+        return result
 
+    # cap number of builds
+    trimmed = result[:max_builds]
+
+    # summarize extended fields instead of dumping all values
+    for build in trimmed:
+        if "extended" in build and isinstance(build["extended"], dict):
+            build["extended"] = {
+                k: v for k, v in build["extended"].items()
+                if v and v.strip()  # drop empty values
+            }
+
+    return trimmed
 
 def dispatch_tool(
     tool_name: str,
@@ -199,6 +218,8 @@ CUSTOMER CONTEXT:
                     config,
                     onboarding
                 )
+                trimmed_result = trim_tool_result(result)
+
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
@@ -208,17 +229,21 @@ CUSTOMER CONTEXT:
         # model is done reasoning
         elif finish_reason == "stop":
             print("[CORVUS] Debrief complete.\n")
-            final = (
-                message.content
-                or getattr(message, "reasoning_content", None)
-                or "No debrief generated."
-            )
 
-            # save run to memory
-            save_run(
-                flags=config.get("_flags", []),
-                metrics=config.get("_metrics", [])
-            )
+            # try content first
+            final = message.content
+
+            # kimi on NIM sometimes puts final output in reasoning_content
+            if not final or not final.strip():
+                reasoning = getattr(message, "reasoning_content", "") or ""
+                # extract everything after the last tool reasoning
+                # the actual response is usually at the end
+                if reasoning.strip():
+                    final = reasoning.strip()
+
+            if not final or not final.strip():
+                print("[CORVUS DEBUG] Full message:", message)
+                final = "No debrief generated."
 
             return final
 

@@ -7,6 +7,7 @@ saves confirmed mapping + fingerprint to onboarding.yaml.
 Usage:
     python src/tools/map_csv.py data/input.csv
     python src/tools/map_csv.py data/input.csv --onboarding config/acs_onboarding.yaml
+    python src/tools/map_csv.py data/input.csv --force
 """
 
 import csv
@@ -162,25 +163,64 @@ Return JSON in this format:
     print("\n[CORVUS] Analyzing CSV structure...\n")
 
     try:
-        print("[CHECKPOINT A] About to call API")
         response = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": "Return this JSON exactly: {\"test\": true}"}],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=100,
-            top_p=0.1
+            max_tokens=4091,
+            top_p=0.1,
+            extra_body={
+                "chat_template_kwargs": {"thinking": False}
+                        }
         )
-        print("[CHECKPOINT B] API call succeeded")
-        print("[CHECKPOINT C] Full response:", response)
+
+        if not response or not response.choices:
+            raise ValueError("Empty response from LLM")
+
         message = response.choices[0].message
-        print("[CHECKPOINT D] content:", message.content)
-        print("[CHECKPOINT E] reasoning_content:", getattr(message, "reasoning_content", "N/A"))
+        raw = message.content
+
+        if not raw or not raw.strip():
+            reasoning = getattr(message, "reasoning_content", None) or ""
+            if reasoning:
+                print("[CORVUS] Content was None — using reasoning_content")
+                json_start = reasoning.find("{")
+                json_end = reasoning.rfind("}") + 1
+                if json_start != -1 and json_end > json_start:
+                    raw = reasoning[json_start:json_end]
+
+        if not raw or not raw.strip():
+            print("[CORVUS ERROR] Both content and reasoning_content are empty")
+            print("[CORVUS DEBUG] Full response:", response)
+            raise ValueError("LLM returned no usable content")
+
+        raw = raw.strip()
+        print(f"[CORVUS DEBUG] Raw output (truncated):\n{raw[:300]}\n")
+
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0]
+        elif "```" in raw:
+            raw = raw.split("```")[1].split("```")[0]
+        raw = raw.strip()
+
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            print("[CORVUS] JSON incomplete — attempting recovery...")
+            last_brace = raw.rfind("}")
+            if last_brace != -1:
+                trimmed = raw[:last_brace + 1]
+                try:
+                    return json.loads(trimmed)
+                except json.JSONDecodeError:
+                    pass
+            print("[CORVUS ERROR] Could not recover JSON")
+            raise
 
     except Exception as e:
-        print("[CHECKPOINT F] Exception thrown:")
+        print("\n[CORVUS ERROR]:")
         traceback.print_exc()
-    
-
+        raise
 
 
 def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dict, dict]:
@@ -212,7 +252,6 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
         else:
             needs_review.append((field, csv_col, confidence, reasoning))
 
-    # show auto-accepted
     print(f"\n✅  AUTO-ACCEPTED (confidence ≥ {CONFIDENCE_THRESHOLD}):\n")
     for field, csv_col, confidence, _ in auto_accepted:
         if csv_col:
@@ -222,36 +261,39 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
             print(f"  {field:<22} ← no match found (will use default)")
             confirmed_column_map[field] = None
 
-    # prompt on low confidence
     if needs_review:
         print(f"\n⚠️   NEEDS YOUR REVIEW (confidence < {CONFIDENCE_THRESHOLD}):\n")
         print(f"Available CSV columns: {headers}\n")
 
         for field, csv_col, confidence, reasoning in needs_review:
-            is_required = field in REQUIRED_FIELDS
-            req_label = " [REQUIRED]" if is_required else " [optional]"
 
-            print(f"  Field: {field}{req_label}")
+            # no match at all — skip silently, use default
+            if not csv_col:
+                continue
+
+            # low confidence match exists — prompt to confirm
+            print(f"  Field: {field}")
             print(f"  Description: {CORVUS_SCHEMA.get(field, '')}")
             print(f"  Best guess: '{csv_col}' ({int(confidence*100)}% confidence)")
             if reasoning:
                 print(f"  Reasoning: {reasoning}")
 
-            if csv_col:
+            while True:
                 user_input = input(
                     f"\n  Accept '{csv_col}'? Press Enter to accept, "
-                    f"or type correct column name: "
+                    f"or type correct CSV column name: "
                 ).strip()
-                confirmed_column_map[field] = user_input if user_input else csv_col
-            else:
-                user_input = input(
-                    f"\n  No match found. Type column name or press Enter to skip: "
-                ).strip()
-                confirmed_column_map[field] = user_input if user_input else None
+                if not user_input:
+                    confirmed_column_map[field] = csv_col
+                    break
+                elif user_input in headers:
+                    confirmed_column_map[field] = user_input
+                    break
+                else:
+                    print(f"  ⚠️  '{user_input}' not in CSV. Available: {headers}")
 
             print()
 
-    # show status map
     if status_map:
         print("\n📋  STATUS NORMALIZATION:\n")
         for their_val, our_val in status_map.items():
@@ -262,7 +304,6 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
         if confirm == "n":
             status_map = {}
 
-    # show unmapped
     if unmapped:
         print(f"\n❓  UNMAPPED COLUMNS (not used by Corvus): {unmapped}")
 
@@ -346,8 +387,11 @@ def run(csv_path: str, onboarding_path: str, force: bool = False):
     fingerprint = get_csv_fingerprint(csv_path)
 
     if not force and check_existing_mapping(onboarding, csv_path, fingerprint, headers):
-        print("[CORVUS] Mapping is current. Use --force to remap. ")
+        print("[CORVUS] Mapping is current. Use --force to remap.")
         return
+
+    if force:
+        print("[CORVUS] Force flag set — remapping regardless of cache.\n")
 
     proposal = propose_mapping_with_llm(headers, sample_rows, config)
     column_map, status_map = display_and_confirm_mapping(proposal, headers)
@@ -373,8 +417,9 @@ if __name__ == "__main__":
         help="Path to onboarding config (default: config/onboarding.yaml)"
     )
     parser.add_argument(
-    "--force",
-    action="store_true",
-    help="Force remapping even if a valid mapping exists")
+        "--force",
+        action="store_true",
+        help="Force remapping even if a valid mapping exists"
+    )
     args = parser.parse_args()
     run(args.csv_path, args.onboarding, force=args.force)

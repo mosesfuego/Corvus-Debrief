@@ -1,5 +1,5 @@
 #mes_type: "csv"
-mes_type: "flexible_csv"
+mes_type: "csv"
 
 agents:
   provider: "nim"
