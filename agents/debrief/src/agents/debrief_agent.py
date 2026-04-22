@@ -5,6 +5,8 @@ Uses OpenAI-compatible client — works with Kimi K2 or any compatible provider.
 """
 
 import json
+import os
+import sys
 from openai import OpenAI
 from agents.tools import (
     get_build_metrics,
@@ -13,7 +15,15 @@ from agents.tools import (
     flag_for_team,
 )
 from memory.memory import get_recent_context, save_run
+from pathlib import Path
 
+_THIS_FILE = Path(__file__).resolve()
+_SRC_DIR = _THIS_FILE.parent.parent
+_AGENT_ROOT = _SRC_DIR.parent
+
+_PROJECT_ROOT = _AGENT_ROOT.parent.parent
+
+PROMPT_PATH = _AGENT_ROOT / "prompts" / "system_prompt.txt"
 
 TOOL_SCHEMAS = [
     {
@@ -141,6 +151,7 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
         base_url=agent_config.get("base_url")
     )
     model = agent_config.get("model", "moonshotai/kimi-k2.5")
+    print("check 1")
 
     # build customer context from onboarding
     terminology = onboarding.get("terminology", {})
@@ -150,7 +161,16 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
     site = onboarding.get("site", "the plant")
 
     # load system prompt
-    with open("prompts/system_prompt.txt", "r") as f:
+    #with open("prompts/system_prompt.txt", "r") as f:
+        #AGENT_ROOT = os.path.dirname(
+          #  os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+          #  )
+    print("sup" , "  " , _AGENT_ROOT)
+    print("PATH:", PROMPT_PATH)
+    print("EXISTS:", PROMPT_PATH.exists())
+    
+    with open(PROMPT_PATH, "r") as f:
         system_prompt = f.read()
 
     # inject customer context

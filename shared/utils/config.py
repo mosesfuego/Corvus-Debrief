@@ -2,7 +2,7 @@ import yaml
 import os
 import re
 SUPPORTED_SCHEMA_VERSIONS = ["1.0"]
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "agents/debrief/config/config.yaml") -> dict:
     # auto-load .env if it exists
     _load_dotenv()
 
@@ -23,7 +23,7 @@ def load_config(path: str = "config/config.yaml") -> dict:
     return yaml.safe_load(resolved)
 
 
-def load_onboarding(path: str = "config/onboarding.yaml") -> dict:
+def load_onboarding(path: str = "agents/debrief/config/onboarding.yaml") -> dict:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Onboarding file not found: {path}")
     with open(path, "r") as f:
