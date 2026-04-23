@@ -4,10 +4,11 @@ Reads any CSV, uses LLM to propose column mapping to Corvus schema,
 auto-accepts high confidence fields, prompts on uncertain ones,
 saves confirmed mapping + fingerprint to onboarding.yaml.
 
-Usage:
-    python src/tools/map_csv.py data/input.csv
-    python src/tools/map_csv.py data/input.csv --onboarding config/acs_onboarding.yaml
-    python src/tools/map_csv.py data/input.csv --force
+Usage (from repository root):
+    python agents/debrief/src/tools/map_csv.py shared/data/input.csv
+    python agents/debrief/src/tools/map_csv.py shared/data/input.csv \\
+        --onboarding agents/debrief/config/onboarding.yaml
+    python agents/debrief/src/tools/map_csv.py shared/data/input.csv --force
 """
 
 import csv
@@ -18,11 +19,16 @@ import argparse
 import os
 import traceback
 
-# add project root and src/ to path
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SRC_DIR = os.path.join(PROJECT_ROOT, "src")
-sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, SRC_DIR)
+_THIS_FILE = os.path.abspath(__file__)
+_SRC_DIR = os.path.dirname(os.path.dirname(_THIS_FILE))
+_AGENT_ROOT = os.path.dirname(_SRC_DIR)
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_AGENT_ROOT))
+_SHARED_DIR = os.path.join(_PROJECT_ROOT, "shared")
+
+sys.path.insert(0, _SRC_DIR)
+for _p in (_SHARED_DIR, _PROJECT_ROOT):
+    if _p not in sys.path:
+        sys.path.append(_p)
 
 import yaml
 from openai import OpenAI
@@ -167,11 +173,9 @@ Return JSON in this format:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=4091,
+            max_tokens=4096,
             top_p=0.1,
-            extra_body={
-                "chat_template_kwargs": {"thinking": False}
-                        }
+            extra_body={"chat_template_kwargs": {"thinking": False}},
         )
 
         if not response or not response.choices:
@@ -183,19 +187,17 @@ Return JSON in this format:
         if not raw or not raw.strip():
             reasoning = getattr(message, "reasoning_content", None) or ""
             if reasoning:
-                print("[CORVUS] Content was None — using reasoning_content")
+                print("[CORVUS] Using reasoning_content (message.content was empty)")
                 json_start = reasoning.find("{")
                 json_end = reasoning.rfind("}") + 1
                 if json_start != -1 and json_end > json_start:
                     raw = reasoning[json_start:json_end]
 
         if not raw or not raw.strip():
-            print("[CORVUS ERROR] Both content and reasoning_content are empty")
-            print("[CORVUS DEBUG] Full response:", response)
+            print("[CORVUS] LLM returned no usable content or JSON.")
             raise ValueError("LLM returned no usable content")
 
         raw = raw.strip()
-        print(f"[CORVUS DEBUG] Raw output (truncated):\n{raw[:300]}\n")
 
         if "```json" in raw:
             raw = raw.split("```json")[1].split("```")[0]
@@ -377,7 +379,8 @@ def run(csv_path: str, onboarding_path: str, force: bool = False):
         print(f"[CORVUS] File not found: {csv_path}")
         sys.exit(1)
 
-    config = load_config()
+    config_path = os.path.join(_AGENT_ROOT, "config", "config.yaml")
+    config = load_config(config_path)
     onboarding = load_onboarding(onboarding_path)
 
     print(f"\n[CORVUS] Reading: {csv_path}")
@@ -405,16 +408,17 @@ def run(csv_path: str, onboarding_path: str, force: bool = False):
         fingerprint=fingerprint
     )
 
-    print("[CORVUS] Ready. Run: python src/main.py")
+    print("[CORVUS] Ready. Run: python agents/debrief/src/main.py --csv <path>")
 
 
 if __name__ == "__main__":
+    default_onboarding = os.path.join(_AGENT_ROOT, "config", "onboarding.yaml")
     parser = argparse.ArgumentParser(description="Corvus CSV Column Mapper")
     parser.add_argument("csv_path", help="Path to customer CSV file")
     parser.add_argument(
         "--onboarding",
-        default="config/onboarding.yaml",
-        help="Path to onboarding config (default: config/onboarding.yaml)"
+        default=default_onboarding,
+        help="Path to onboarding config",
     )
     parser.add_argument(
         "--force",

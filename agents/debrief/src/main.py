@@ -9,14 +9,18 @@ _AGENT_ROOT   = os.path.dirname(_SRC_DIR)
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_AGENT_ROOT))
 _SHARED_DIR   = os.path.join(_PROJECT_ROOT, "shared")
 
+# _SRC_DIR must precede _PROJECT_ROOT so `agents` resolves to src/agents/, not repo agents/.
 sys.path.insert(0, _SRC_DIR)
-sys.path.insert(0, _SHARED_DIR)
-sys.path.insert(0, _PROJECT_ROOT)
+for _p in (_SHARED_DIR, _PROJECT_ROOT):
+    if _p not in sys.path:
+        sys.path.append(_p)
 
 from utils.config import load_config, load_onboarding
 from tools.map_csv import run as run_mapper
 from reporting.debrief_template import DebriefGenerator
 from agents.debrief_agent import run_debrief_agent
+from agents.tools import get_build_metrics
+from memory.memory import save_run
 
 
 def parse_args():
@@ -72,7 +76,7 @@ def main():
     args = parse_args()
 
     if args.list_scenarios:
-        print("Available scenarios: normal, crisis, staffing, acs")
+        print("[CORVUS] Available scenarios: normal, crisis, staffing, acs")
         return
 
     config_path    = os.path.join(_AGENT_ROOT, "config", "config.yaml")
@@ -97,10 +101,16 @@ def main():
     else:
         print(f"[CORVUS] Running with mes_type: {config.get('mes_type', 'not set')}\n")
 
-    debrief  = run_debrief_agent(config, onboarding)
+    debrief = run_debrief_agent(config, onboarding)
     reporter = DebriefGenerator(config, onboarding)
-    report   = reporter.generate(debrief)
+    report = reporter.generate(debrief)
     reporter.output(report)
+
+    try:
+        bundle = get_build_metrics(config, onboarding)
+        save_run(config.get("_flags", []), bundle.get("builds", []))
+    except Exception as exc:
+        print(f"[CORVUS] Memory log not updated: {exc}")
 
 
 if __name__ == "__main__":

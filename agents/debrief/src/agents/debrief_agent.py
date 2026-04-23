@@ -5,8 +5,6 @@ Uses OpenAI-compatible client — works with Kimi K2 or any compatible provider.
 """
 
 import json
-import os
-import sys
 from openai import OpenAI
 from agents.tools import (
     get_build_metrics,
@@ -14,7 +12,7 @@ from agents.tools import (
     get_at_risk_report,
     flag_for_team,
 )
-from memory.memory import get_recent_context, save_run
+from memory.memory import get_recent_context
 from pathlib import Path
 
 _THIS_FILE = Path(__file__).resolve()
@@ -92,25 +90,29 @@ TOOL_SCHEMAS = [
         }
     }
 ]
-def trim_tool_result(result, max_builds: int = 10) -> any:
+def _extended_nonempty(k: str, v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, str):
+        return bool(v.strip())
+    return True
+
+
+def trim_tool_result(result, max_builds: int = 10):
     """
-    Prevent tool results from overwhelming the context window.
-    Lists get capped. Extended fields get summarized.
+    Cap list length for tool results. Drop empty extended field values.
     """
     if not isinstance(result, list):
         return result
 
-    # cap number of builds
-    trimmed = result[:max_builds]
-
-    # summarize extended fields instead of dumping all values
+    trimmed = [dict(b) for b in result[:max_builds]]
     for build in trimmed:
-        if "extended" in build and isinstance(build["extended"], dict):
+        ext = build.get("extended")
+        if isinstance(ext, dict):
             build["extended"] = {
-                k: v for k, v in build["extended"].items()
-                if v and v.strip()  # drop empty values
+                k: v for k, v in ext.items()
+                if _extended_nonempty(k, v)
             }
-
     return trimmed
 
 def dispatch_tool(
@@ -151,7 +153,6 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
         base_url=agent_config.get("base_url")
     )
     model = agent_config.get("model", "moonshotai/kimi-k2.5")
-    print("check 1")
 
     # build customer context from onboarding
     terminology = onboarding.get("terminology", {})
@@ -160,16 +161,6 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
     company = onboarding.get("company", "the company")
     site = onboarding.get("site", "the plant")
 
-    # load system prompt
-    #with open("prompts/system_prompt.txt", "r") as f:
-        #AGENT_ROOT = os.path.dirname(
-          #  os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
-          #  )
-    print("sup" , "  " , _AGENT_ROOT)
-    print("PATH:", PROMPT_PATH)
-    print("EXISTS:", PROMPT_PATH.exists())
-    
     with open(PROMPT_PATH, "r") as f:
         system_prompt = f.read()
 
@@ -205,7 +196,8 @@ CUSTOMER CONTEXT:
             tools=TOOL_SCHEMAS,
             messages=messages,
             temperature=1.00,
-            max_tokens=4096
+            max_tokens=8192,
+            extra_body={"chat_template_kwargs": {"thinking": False}},
         )
 
         message = response.choices[0].message
@@ -238,12 +230,12 @@ CUSTOMER CONTEXT:
                     config,
                     onboarding
                 )
-                trimmed_result = trim_tool_result(result)
+                trimmed = trim_tool_result(result)
 
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": json.dumps(result)
+                    "content": json.dumps(trimmed),
                 })
 
         # model is done reasoning
@@ -262,7 +254,7 @@ CUSTOMER CONTEXT:
                     final = reasoning.strip()
 
             if not final or not final.strip():
-                print("[CORVUS DEBUG] Full message:", message)
+                print("[CORVUS] Empty model text after tool use; check provider output.")
                 final = "No debrief generated."
 
             return final

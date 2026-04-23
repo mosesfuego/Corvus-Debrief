@@ -49,7 +49,7 @@ class SQLiteMESConnector(BaseMESConnector):
                 for row in rows
             ]
         except Exception as e:
-            print(f"SQLite fetch error: {e}")
+            print(f"[CORVUS] SQLite fetch error: {e}")
             return []
 
     def get_bottleneck_report(self) -> list[dict]:
@@ -82,7 +82,7 @@ class SQLiteMESConnector(BaseMESConnector):
                 for row in rows
             ]
         except Exception as e:
-            print(f"SQLite bottleneck report error: {e}")
+            print(f"[CORVUS] SQLite bottleneck report error: {e}")
             return []
 
     def get_at_risk_report(self) -> list[dict]:
@@ -119,7 +119,7 @@ class SQLiteMESConnector(BaseMESConnector):
                 for row in rows
             ]
         except Exception as e:
-            print(f"SQLite at-risk report error: {e}")
+            print(f"[CORVUS] SQLite at-risk report error: {e}")
             return []
 
     def get_efficiency_by_station(self) -> list[dict]:
@@ -159,7 +159,7 @@ class SQLiteMESConnector(BaseMESConnector):
                 for row in rows
             ]
         except Exception as e:
-            print(f"SQLite efficiency report error: {e}")
+            print(f"[CORVUS] SQLite efficiency report error: {e}")
             return []
 
     def update_completed_status(self) -> int:
@@ -187,5 +187,5 @@ class SQLiteMESConnector(BaseMESConnector):
             
             return updated
         except Exception as e:
-            print(f"SQLite completion update error: {e}")
+            print(f"[CORVUS] SQLite completion update error: {e}")
             return 0

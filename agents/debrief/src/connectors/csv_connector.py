@@ -7,8 +7,8 @@ Unknown columns are preserved under build["extended"].
 Missing schema fields use safe defaults — no errors.
 
 To use:
-    1. Run: python src/tools/map_csv.py data/your_file.csv
-    2. Run: python src/main.py --csv data/your_file.csv
+    1. Run: python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv
+    2. Run: python agents/debrief/src/main.py --csv shared/data/your_file.csv
 """
 
 import csv
@@ -56,7 +56,7 @@ class CSVMESConnector(BaseMESConnector):
         if not file_path:
             raise ValueError(
                 "\n[CORVUS] No CSV file specified.\n"
-                "Run with: python src/main.py --csv data/your_file.csv"
+                "Run with: python agents/debrief/src/main.py --csv shared/data/your_file.csv"
             )
 
         self.file_path = file_path
@@ -91,25 +91,21 @@ class CSVMESConnector(BaseMESConnector):
             elif csv_col.lower() in headers_lower:
                 actual_col = headers_lower[csv_col.lower()]
                 mapped[field] = actual_col
-                print(f"[CORVUS] Case-insensitive match: '{csv_col}' → '{actual_col}'")
+                print(
+                    f"[CORVUS] Case-insensitive column match: "
+                    f"'{csv_col}' → '{actual_col}'"
+                )
 
-        # extended = any CSV column not mapped to schema
         mapped_csv_cols = set(mapped.values())
         extended_cols = [h for h in headers if h not in mapped_csv_cols]
-
-        # report
-        print(f"\n[CORVUS] CSV headers: {headers}")
-        if mapped:
-            print(f"[CORVUS] Mapped to schema: {list(mapped.keys())}")
-        else:
-            print(f"[CORVUS] No schema mappings found — all fields going to extended")
-
         missing = [f for f in OPTIONAL_FIELDS if f not in mapped]
-        if missing:
-            print(f"[CORVUS] Using defaults for: {missing}")
 
-        if extended_cols:
-            print(f"[CORVUS] Extended fields (passed through): {extended_cols}")
+        print(
+            f"[CORVUS] CSV ingest: {len(headers)} columns, "
+            f"{len(mapped)} schema fields mapped, "
+            f"{len(extended_cols)} extended"
+            + (f", defaults for {missing}" if missing else "")
+        )
 
         return mapped, extended_cols
 
@@ -180,7 +176,7 @@ class CSVMESConnector(BaseMESConnector):
                 builds.append(build)
 
         self._cache = builds # cache after first read 
-        print(f"[CORVUS] Loaded {len(builds)} builds from {self.file_path}\n")
+        print(f"[CORVUS] Loaded {len(builds)} builds from {self.file_path}")
         return self._cache
 
     def get_bottleneck_report(self) -> list[dict]:

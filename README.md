@@ -22,17 +22,19 @@ No dashboards to interpret. No data to manually compile. Just intelligence, deli
 
 ## Quick Start
 
+From the repository root:
+
 ```bash
 # Run against your own CSV
-python src/main.py --csv data/your_export.csv
+python agents/debrief/src/main.py --csv shared/data/your_export.csv
 
 # Demo scenarios
-python src/main.py --scenario normal
-python src/main.py --scenario crisis
-python src/main.py --scenario staffing
+python agents/debrief/src/main.py --scenario normal
+python agents/debrief/src/main.py --scenario crisis
+python agents/debrief/src/main.py --scenario staffing
 
 # See available scenarios
-python src/main.py --list-scenarios
+python agents/debrief/src/main.py --list-scenarios
 ```
 
 Reports are printed to console and saved to `reports/`.
@@ -68,7 +70,7 @@ NIM_API_KEY=your_api_key_here
 
 **Step 2 — Configure your system:**
 
-Edit `config/config.yaml`:
+Edit `agents/debrief/config/config.yaml`:
 ```yaml
 mes_type: "csv"
 
@@ -85,7 +87,7 @@ reporting:
 
 **Step 3 — Tell Corvus about your operation:**
 
-Edit `config/onboarding.yaml`:
+Edit `agents/debrief/config/onboarding.yaml`:
 ```yaml
 schema_version: "1.0"
 company: "Your Company"
@@ -147,7 +149,7 @@ teams:
 **Step 4 — Drop your CSV and run:**
 
 ```bash
-python src/main.py --csv data/your_export.csv
+python agents/debrief/src/main.py --csv shared/data/your_export.csv
 ```
 
 If this is the first time running against this CSV, Corvus will automatically map your columns.
@@ -162,13 +164,13 @@ On first run against a new CSV, Corvus uses an LLM to propose a column mapping:
 
 ```bash
 # Auto-mapping happens automatically when you pass --csv
-python src/main.py --csv data/your_export.csv
+python agents/debrief/src/main.py --csv shared/data/your_export.csv
 
 # Or run the mapper manually
-python src/tools/map_csv.py data/your_export.csv
+python agents/debrief/src/tools/map_csv.py shared/data/your_export.csv
 
 # Force remap if your CSV structure changed
-python src/tools/map_csv.py data/your_export.csv --force
+python agents/debrief/src/tools/map_csv.py shared/data/your_export.csv --force
 ```
 
 **What the mapper does:**
@@ -287,18 +289,18 @@ Any CSV / MES / SQLite
 
 | File | Purpose |
 |------|---------|
-| `src/main.py` | Entry point, CLI |
-| `src/agents/debrief_agent.py` | Agent reasoning loop |
-| `src/agents/tools.py` | Tools the agent can call |
-| `src/tools/map_csv.py` | LLM-assisted CSV column mapper |
-| `src/connectors/csv_connector.py` | Flexible CSV connector |
-| `src/connectors/factory.py` | Connector selector with caching |
-| `src/analytics/build_metrics.py` | Enriches raw build data |
-| `src/reporting/debrief_template.py` | Report formatter |
-| `config/onboarding.yaml` | Your operation profile |
-| `config/config.yaml` | System configuration |
-| `prompts/system_prompt.txt` | Agent reasoning instructions |
-| `memory/log.json` | Run history for pattern detection |
+| `agents/debrief/src/main.py` | Entry point, CLI |
+| `agents/debrief/src/agents/debrief_agent.py` | Agent reasoning loop |
+| `agents/debrief/src/agents/tools.py` | Tools the agent can call |
+| `agents/debrief/src/tools/map_csv.py` | LLM-assisted CSV column mapper |
+| `agents/debrief/src/connectors/csv_connector.py` | Flexible CSV connector |
+| `agents/debrief/src/connectors/factory.py` | Connector selector with caching |
+| `agents/debrief/src/analytics/build_metrics.py` | Enriches raw build data |
+| `agents/debrief/src/reporting/debrief_template.py` | Report formatter |
+| `agents/debrief/config/onboarding.yaml` | Your operation profile |
+| `agents/debrief/config/config.yaml` | System configuration |
+| `agents/debrief/prompts/system_prompt.txt` | Agent reasoning instructions |
+| `shared/memory/log.json` | Run history for pattern detection |
 
 ---
 
@@ -306,27 +308,27 @@ Any CSV / MES / SQLite
 
 ```bash
 # Run against CSV (auto-maps on first run)
-python src/main.py --csv data/your_file.csv
+python agents/debrief/src/main.py --csv shared/data/your_file.csv
 
 # Use a specific onboarding config
-python src/main.py --csv data/your_file.csv --onboarding config/acs_onboarding.yaml
+python agents/debrief/src/main.py --csv shared/data/your_file.csv --onboarding agents/debrief/config/acs_onboarding.yaml
 
 # Demo scenarios
-python src/main.py --scenario normal
-python src/main.py --scenario crisis
-python src/main.py --scenario staffing
+python agents/debrief/src/main.py --scenario normal
+python agents/debrief/src/main.py --scenario crisis
+python agents/debrief/src/main.py --scenario staffing
 
 # List scenarios
-python src/main.py --list-scenarios
+python agents/debrief/src/main.py --list-scenarios
 
 # Map CSV manually
-python src/tools/map_csv.py data/your_file.csv
+python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv
 
 # Force remap
-python src/tools/map_csv.py data/your_file.csv --force
+python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv --force
 
 # Map with specific onboarding
-python src/tools/map_csv.py data/your_file.csv --onboarding config/acs_onboarding.yaml
+python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv --onboarding agents/debrief/config/acs_onboarding.yaml
 ```
 
 ---
@@ -334,14 +336,14 @@ python src/tools/map_csv.py data/your_file.csv --onboarding config/acs_onboardin
 ## Running Tests
 
 ```bash
-# Setup test database first
-python tests/setup_test_db.py
+# Setup test database first (from repository root)
+python agents/debrief/tests/setup_test_db.py
 
 # Run all tests
-pytest tests/ -v
+pytest agents/debrief/tests/ -v
 
 # Run with coverage
-pytest tests/ -v --cov=src --cov-report=term-missing
+pytest agents/debrief/tests/ -v --cov=agents/debrief/src --cov-report=term-missing
 ```
 
 ---
@@ -361,7 +363,7 @@ pytest tests/ -v --cov=src --cov-report=term-missing
 
 ## Agent Memory
 
-Corvus maintains a rolling log of past runs in `memory/log.json`. The last 5 runs are injected into the agent context so it can identify patterns across shifts:
+Corvus maintains a rolling log of past runs in `shared/memory/log.json`. The last 5 runs are injected into the agent context so it can identify patterns across shifts:
 
 "WELD-01 has been blocked three consecutive shifts — this is systemic, not a one-off."
 
@@ -383,39 +385,33 @@ Corvus maintains a rolling log of past runs in `memory/log.json`. The last 5 run
 ## Project Structure
 
 ```
-corvus-debrief/
-├── src/
-│   ├── main.py
-│   ├── agents/
-│   │   ├── debrief_agent.py
-│   │   └── tools.py
-│   ├── analytics/
-│   │   └── build_metrics.py
-│   ├── connectors/
-│   │   ├── base.py
-│   │   ├── factory.py
-│   │   ├── csv_connector.py
-│   │   ├── sqlite_connector.py
-│   │   ├── api_connector.py
-│   │   └── scenarios/
-│   ├── reporting/
-│   │   └── debrief_template.py
-│   ├── tools/
-│   │   └── map_csv.py
-│   └── utils/
-│       └── config.py
-├── config/
-│   ├── config.yaml
-│   └── onboarding.yaml
-├── prompts/
-│   └── system_prompt.txt
-├── memory/
-│   └── log.json
-├── data/
-├── reports/
-├── tests/
+corvus-mfg/
+├── agents/
+│   └── debrief/
+│       ├── config/
+│       │   ├── config.yaml
+│       │   └── onboarding.yaml
+│       ├── prompts/
+│       │   └── system_prompt.txt
+│       ├── skills/
+│       ├── tests/
+│       └── src/
+│           ├── main.py
+│           ├── agents/
+│           ├── analytics/
+│           ├── connectors/
+│           ├── memory/
+│           ├── reporting/
+│           └── tools/
+├── shared/
+│   ├── utils/
+│   ├── memory/
+│   ├── data/
+│   ├── reports/
+│   └── skills/
 ├── .env
-└── requirements.txt
+├── requirements.txt
+└── README.md
 ```
 
 ---
@@ -424,7 +420,7 @@ corvus-debrief/
 
 1. Fork and branch: `git checkout -b feature/my-feature`
 2. Write tests for new functionality
-3. Ensure tests pass: `pytest tests/ -v`
+3. Ensure tests pass: `pytest agents/debrief/tests/ -v`
 4. Submit PR with clear description
 
 ---

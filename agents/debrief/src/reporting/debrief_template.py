@@ -103,9 +103,8 @@ class DebriefGenerator:
         return "      - No direct action items this cycle. Monitor for changes."
 
     def output(self, report: str):
-        """Print to console."""
+        """Print to console and write markdown under reporting.output_dir."""
         print(report)
-        ##Markdown file
         os.makedirs(self.output_dir, exist_ok=True)
         date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
         filename = f"corvus_debrief_{date_str}.md"

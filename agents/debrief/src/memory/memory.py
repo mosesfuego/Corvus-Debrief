@@ -1,15 +1,19 @@
 """
 Corvus memory module.
-Simple external memory — persists findings across sessions.
-No LLM required. Just reads and writes JSON.
+Persists a rolling run history at shared/memory/log.json (project-relative).
 """
 
 import json
 import os
 from datetime import datetime
 
-
-MEMORY_PATH = "memory/log.json"
+_THIS_FILE = os.path.abspath(__file__)
+_SRC_DIR = os.path.dirname(os.path.dirname(_THIS_FILE))
+_AGENT_ROOT = os.path.dirname(_SRC_DIR)
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_AGENT_ROOT))
+_SHARED_DIR = os.path.join(_PROJECT_ROOT, "shared")
+_MEMORY_DIR = os.path.join(_SHARED_DIR, "memory")
+MEMORY_PATH = os.path.join(_MEMORY_DIR, "log.json")
 
 
 def load_memory() -> dict:
@@ -20,15 +24,21 @@ def load_memory() -> dict:
         return json.load(f)
 
 
-def save_run(flags: list[dict], metrics: list[dict]):
+def save_run(flags: list[dict], evaluated_builds: list[dict]):
     """
     Append current run to memory log.
     Called at end of every debrief.
     """
     memory = load_memory()
 
-    blocked = [m for m in metrics if m.get("status") == "Blocked"]
-    at_risk = [m for m in metrics if m.get("delay_flag")]
+    blocked = [
+        m for m in evaluated_builds
+        if m.get("signals", {}).get("blocked")
+    ]
+    at_risk = [
+        m for m in evaluated_builds
+        if m.get("signals", {}).get("at_risk")
+    ]
 
     run = {
         "timestamp": datetime.now().isoformat(),
@@ -43,23 +53,20 @@ def save_run(flags: list[dict], metrics: list[dict]):
             }
             for f in flags
         ],
-        "blocked_stations": [b["station_id"] for b in blocked],
+        "blocked_stations": [b.get("station_id", "") for b in blocked],
     }
 
     memory["runs"].append(run)
-
-    # keep last 30 runs only — prevents unbounded growth
     memory["runs"] = memory["runs"][-30:]
 
-    os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
+    os.makedirs(_MEMORY_DIR, exist_ok=True)
     with open(MEMORY_PATH, "w") as f:
         json.dump(memory, f, indent=2)
 
 
 def get_recent_context(lookback: int = 5) -> str:
     """
-    Returns a plain text summary of recent runs.
-    Injected into agent system prompt so Corvus can reference history.
+    Plain text summary of recent runs for the system prompt.
     """
     memory = load_memory()
     runs = memory.get("runs", [])[-lookback:]

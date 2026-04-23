@@ -25,6 +25,7 @@ venv/
 .DS_Store
 Thumbs.db
 reports/
+shared/memory/log.json
 # Local config overrides (may contain API keys)
 #config/config.local.yaml
 #config/onboarding.local.yaml

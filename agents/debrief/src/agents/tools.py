@@ -96,7 +96,7 @@ def flag_for_team(
         "reason":   reason,
         "urgency":  urgency,
     }
-    print(f"[CORVUS FLAG] → {team} | {urgency.upper()} | {build_id}: {reason}")
+    print(f"[CORVUS] Flag → {team} | {urgency.upper()} | {build_id}: {reason}")
 
     if config is not None:
         config.setdefault("_flags", []).append(flag)
