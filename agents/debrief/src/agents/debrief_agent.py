@@ -140,6 +140,66 @@ def dispatch_tool(
         return {"error": f"Unknown tool: {tool_name}"}
 
 
+def run_deterministic_demo_debrief(config: dict, onboarding: dict) -> str:
+    """
+    Local demo fallback for zero-setup runs.
+    Used only when --demo is selected and no LLM API key is available.
+    """
+    bundle = get_build_metrics(config, onboarding)
+    signals = bundle["signals"]
+    summary = bundle["summary"]
+
+    for build in signals["blocked"]:
+        team = (
+            "Quality Assurance"
+            if "broker" in build.get("notes", "").lower()
+            else "Production"
+        )
+        flag_for_team(
+            build_id=build["build_id"],
+            team=team,
+            reason=build.get("notes", "Blocked work order requires action"),
+            urgency="critical",
+            config=config,
+        )
+
+    for build in signals["unassigned"]:
+        flag_for_team(
+            build_id=build["build_id"],
+            team="Scheduling",
+            reason="Work order has no assigned operator",
+            urgency="high",
+            config=config,
+        )
+
+    blocked_text = "; ".join(
+        f"{b['build_id']} at {b['station_id']} ({b.get('notes', 'blocked')})"
+        for b in signals["blocked"]
+    ) or "None."
+    at_risk_text = "; ".join(
+        f"{b['build_id']} at {b['station_id']} is at risk"
+        for b in signals["at_risk"]
+    ) or "None."
+    needs_decision_text = "; ".join(
+        f"{b['build_id']} at {b['station_id']}"
+        for b in signals["needs_decision"]
+    ) or "None."
+
+    return f"""SUMMARY
+The floor has {summary['blocked_count']} blocked work orders and {summary['at_risk_count']} at-risk work orders. Tier 1 aerospace work is stopped by a feeder mismatch, an expired operator certification, and a broker buy QA hold. Scheduling also needs to cover an unassigned quick-turn SMT job before it becomes the next bottleneck.
+
+PRIORITY FINDINGS
+🔴 Blocked: {blocked_text}
+🟡 At Risk: {at_risk_text}
+🔵 Needs Decision: {needs_decision_text}
+⚪ Pattern Note: ERR_FEED_MISMATCH on SMT_SIPLACE_B is paired with an expired operator certification, which points to a process and readiness issue rather than a one-off machine fault.
+
+RECOMMENDED ACTIONS
+- Clear feeder position 22 and recertify the Aero Medical operator before restarting ACS-2241 → Production
+- Review broker buy substitution for C0402-100V and release or reject ACS-2198 → Quality Assurance
+- Assign an operator to ACS-7740 before the quick-turn window closes → Scheduling"""
+
+
 def run_debrief_agent(config: dict, onboarding: dict) -> str:
     """
     Main agent loop.
@@ -147,6 +207,14 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
     Returns final debrief string.
     """
     agent_config = config.get("agents", {})
+
+    if not agent_config.get("api_key"):
+        if config.get("_demo"):
+            print("[CORVUS] No LLM API key found — using built-in demo reasoning.\n")
+            return run_deterministic_demo_debrief(config, onboarding)
+        raise EnvironmentError(
+            "Missing LLM API key. Set NIM_API_KEY or OPENAI_API_KEY."
+        )
 
     client = OpenAI(
         api_key=agent_config["api_key"],
