@@ -14,7 +14,6 @@ sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
 from utils.config import load_config, load_onboarding
-from utils.tenants import get_tenant_context, list_tenants
 from tools.map_csv import run as run_mapper
 from reporting.debrief_template import DebriefGenerator
 from agents.debrief_agent import run_debrief_agent
@@ -41,24 +40,20 @@ def parse_args():
         help="Path to onboarding config"
     )
     parser.add_argument(
+        "--onboard_wizard",
+        "--onboard-wizard",
+        action="store_true",
+        help="Open the local onboarding wizard for the selected onboarding file"
+    )
+    parser.add_argument(
         "--csv",
         default=None,
         help="Path to CSV file to run against"
     )
     parser.add_argument(
-        "--tenant",
-        default=None,
-        help="Load a customer profile from shared/tenants/<tenant>/onboarding.yaml"
-    )
-    parser.add_argument(
         "--list-scenarios",
         action="store_true",
         help="List available demo scenarios"
-    )
-    parser.add_argument(
-        "--list-tenants",
-        action="store_true",
-        help="List local tenant profiles"
     )
     return parser.parse_args()
 
@@ -183,16 +178,13 @@ def ensure_csv_mapping(
 def main():
     args = parse_args()
 
-    if args.list_scenarios:
-        print("[CORVUS] Available scenarios: normal, crisis, staffing, acs")
+    if args.onboard_wizard:
+        from onboarding import launch_wizard
+        launch_wizard(onboarding_path=args.onboarding)
         return
 
-    if args.list_tenants:
-        tenants = list_tenants()
-        if tenants:
-            print("[CORVUS] Available tenants: " + ", ".join(tenants))
-        else:
-            print("[CORVUS] No local tenant profiles found.")
+    if args.list_scenarios:
+        print("[CORVUS] Available scenarios: normal, crisis, staffing, acs")
         return
 
     if args.demo:
@@ -202,20 +194,10 @@ def main():
 
     else:
         config_path    = os.path.join(_AGENT_ROOT, "config", "config.yaml")
-        tenant_context = None
         onboarding_path = args.onboarding
-
-        if args.tenant:
-            tenant_context = get_tenant_context(args.tenant)
-            onboarding_path = tenant_context["onboarding_path"]
 
         config     = load_config(config_path)
         onboarding = load_onboarding(onboarding_path)
-
-        if tenant_context:
-            config["_tenant"] = tenant_context
-            config.setdefault("reporting", {})["output_dir"] = tenant_context["reports_dir"]
-            print(f"[CORVUS] Tenant profile: {tenant_context['slug']}")
 
         if args.scenario:
             config["scenario"] = args.scenario

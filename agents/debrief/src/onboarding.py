@@ -3,11 +3,10 @@ Local onboarding wizard server.
 
 Run from the repository root:
     python agents/debrief/src/onboarding.py
-    python agents/debrief/src/onboarding.py --tenant aerocore
 
 This is intentionally small and file-backed. In Corvus Cloud, the request's
-authenticated tenant can replace the CLI tenant slug while the UI contract stays
-the same: GET/POST /api/onboarding.
+authenticated customer can resolve the onboarding profile while the UI contract
+stays the same: GET/POST /api/onboarding.
 """
 
 import argparse
@@ -30,8 +29,6 @@ _SHARED_DIR = os.path.join(_PROJECT_ROOT, "shared")
 sys.path.insert(0, _SRC_DIR)
 sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
-
-from utils.tenants import get_tenant_context
 
 UI_PATH = Path(_PROJECT_ROOT) / "docs" / "onboarding-ui.html"
 DEFAULT_ONBOARDING_PATH = Path(_AGENT_ROOT) / "config" / "onboarding.yaml"
@@ -77,16 +74,13 @@ def merge_onboarding(existing: dict, incoming: dict) -> dict:
     return merged
 
 
-def resolve_onboarding_path(args) -> tuple[Path, str | None]:
-    if args.tenant:
-        context = get_tenant_context(args.tenant)
-        return Path(context["onboarding_path"]), context["slug"]
-    if args.onboarding:
-        return Path(args.onboarding).expanduser().resolve(), None
-    return DEFAULT_ONBOARDING_PATH, None
+def resolve_onboarding_path(path: str | None = None) -> Path:
+    if path:
+        return Path(path).expanduser().resolve()
+    return DEFAULT_ONBOARDING_PATH
 
 
-def make_handler(onboarding_path: Path, tenant: str | None):
+def make_handler(onboarding_path: Path):
     class OnboardingHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             route = urlparse(self.path).path
@@ -128,7 +122,6 @@ def make_handler(onboarding_path: Path, tenant: str | None):
             try:
                 data = read_yaml(onboarding_path)
                 self.send_json({
-                    "tenant": tenant,
                     "path": str(onboarding_path),
                     "data": data,
                 })
@@ -145,7 +138,6 @@ def make_handler(onboarding_path: Path, tenant: str | None):
                 merged = merge_onboarding(existing, incoming)
                 write_yaml(onboarding_path, merged)
                 self.send_json({
-                    "tenant": tenant,
                     "path": str(onboarding_path),
                     "data": merged,
                 })
@@ -157,7 +149,6 @@ def make_handler(onboarding_path: Path, tenant: str | None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Launch Corvus onboarding wizard")
-    parser.add_argument("--tenant", help="Tenant slug under shared/tenants/<tenant>")
     parser.add_argument("--onboarding", help="Explicit onboarding.yaml path")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
@@ -165,21 +156,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    onboarding_path, tenant = resolve_onboarding_path(args)
-    handler = make_handler(onboarding_path, tenant)
-    server = ThreadingHTTPServer((args.host, args.port), handler)
-    url = f"http://{args.host}:{args.port}/"
+def launch_wizard(
+    onboarding_path: str | None = None,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    open_browser: bool = True,
+):
+    resolved_path = resolve_onboarding_path(onboarding_path)
+    handler = make_handler(resolved_path)
+    server = ThreadingHTTPServer((host, port), handler)
+    url = f"http://{host}:{port}/"
 
     print("[CORVUS ONBOARDING] Serving wizard", flush=True)
     print(f"[CORVUS ONBOARDING] URL: {url}", flush=True)
-    print(f"[CORVUS ONBOARDING] Target: {onboarding_path}", flush=True)
-    if tenant:
-        print(f"[CORVUS ONBOARDING] Tenant: {tenant}", flush=True)
+    print(f"[CORVUS ONBOARDING] Target: {resolved_path}", flush=True)
     print("[CORVUS ONBOARDING] Press Ctrl+C to stop", flush=True)
 
-    if not args.no_open:
+    if open_browser:
         webbrowser.open(url)
 
     try:
@@ -188,6 +181,16 @@ def main():
         print("\n[CORVUS ONBOARDING] Stopped", flush=True)
     finally:
         server.server_close()
+
+
+def main():
+    args = parse_args()
+    launch_wizard(
+        onboarding_path=args.onboarding,
+        host=args.host,
+        port=args.port,
+        open_browser=not args.no_open,
+    )
 
 
 if __name__ == "__main__":

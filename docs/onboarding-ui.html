@@ -676,7 +676,7 @@
       </div>
 
       <div class="sidebar-footer">
-        Profile: <strong id="tenant-label">local file</strong><br>
+        Profile: <strong id="tenant-label">default</strong><br>
         Target: <strong id="output-path">onboarding.yaml</strong><br>
         Status: <strong id="save-status">viewing</strong>
       </div>
@@ -699,7 +699,7 @@
           <div class="panel-header">
             <div>
               <h2 id="panel-title">Customer details</h2>
-              <p id="panel-copy">This profile becomes the tenant-scoped onboarding record.</p>
+              <p id="panel-copy">This profile becomes the onboarding YAML record.</p>
             </div>
             <span class="pill" id="panel-pill">Draft profile</span>
           </div>
@@ -839,7 +839,7 @@
         <aside class="side-stack">
           <section class="side-panel">
             <h3>Tenant record</h3>
-            <p>The wizard writes one private profile per customer instead of overwriting the global onboarding file.</p>
+            <p>The wizard edits the selected onboarding YAML file. A hosted product can later resolve this file from the authenticated customer.</p>
             <div class="preview">
               tenant: aerocore<br>
               onboarding: onboarding.yaml<br>
@@ -874,11 +874,11 @@
     const steps = Array.from(document.querySelectorAll(".step"));
     const screens = Array.from(document.querySelectorAll(".screen"));
     const titles = {
-      profile: ["Plant profile", "Set the customer identity Corvus will use in every report.", "Customer details", "This profile becomes the tenant-scoped onboarding record.", "Draft profile"],
+      profile: ["Plant profile", "Set the customer identity Corvus will use in every report.", "Customer details", "This profile becomes the onboarding YAML record.", "Draft profile"],
       shifts: ["Operating rules", "Set shift windows and the thresholds Corvus uses to call out risk.", "Shifts and thresholds", "These values become the onboarding thresholds and shift schedule.", "Rules ready"],
       teams: ["Teams", "Capture the operating groups that receive findings.", "Team setup", "Each team gets a meeting target and ownership area.", "Teams ready"],
       routing: ["Routing rules", "Define what each team cares about and which signals they watch.", "Care areas and watch signals", "These rules help Corvus route recommendations to the right meeting.", "Routing ready"],
-      review: ["Review YAML", "Confirm the customer profile before it is saved.", "Onboarding profile", "This is the tenant-scoped onboarding record the app will write.", "Ready to save"]
+      review: ["Review YAML", "Confirm the customer profile before it is saved.", "Onboarding profile", "This is the onboarding YAML record the app will write.", "Ready to save"]
     };
     const teamTemplates = {
       production: {
@@ -1325,8 +1325,8 @@
       document.getElementById("company").value = data.company || "AeroCore Circuitry";
       document.getElementById("site").value = data.site || "Plant A";
       document.getElementById("profile-name").textContent = `${document.getElementById("company").value} / ${document.getElementById("site").value}`;
-      document.getElementById("profile-kind").textContent = meta.tenant ? "Tenant" : "Profile";
-      document.getElementById("tenant-label").textContent = meta.tenant || "default";
+      document.getElementById("profile-kind").textContent = "Profile";
+      document.getElementById("tenant-label").textContent = "default";
       document.getElementById("output-path").textContent = meta.path || "onboarding.yaml";
 
       const industry = data.manufacturing_type || data.industry;

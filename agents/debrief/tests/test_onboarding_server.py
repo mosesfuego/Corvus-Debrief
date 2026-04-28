@@ -12,7 +12,9 @@ sys.path.insert(0, _SRC_DIR)
 sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
-from onboarding import merge_onboarding
+from pathlib import Path
+
+from onboarding import DEFAULT_ONBOARDING_PATH, merge_onboarding, resolve_onboarding_path
 
 
 def test_merge_onboarding_updates_wizard_fields_and_preserves_connector():
@@ -55,3 +57,12 @@ def test_merge_onboarding_ignores_non_wizard_fields_from_request():
 
     assert merged["company"] == "AeroCore"
     assert "csv_connector" not in merged
+
+
+def test_resolve_onboarding_path_defaults_to_project_onboarding():
+    assert resolve_onboarding_path() == DEFAULT_ONBOARDING_PATH
+
+
+def test_resolve_onboarding_path_accepts_explicit_path(tmp_path):
+    explicit = tmp_path / "customer.yaml"
+    assert resolve_onboarding_path(str(explicit)) == Path(explicit).resolve()
