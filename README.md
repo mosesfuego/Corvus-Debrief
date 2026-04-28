@@ -313,6 +313,9 @@ python agents/debrief/src/main.py --csv shared/data/your_file.csv
 # Use a specific onboarding config
 python agents/debrief/src/main.py --csv shared/data/your_file.csv --onboarding agents/debrief/config/acs_onboarding.yaml
 
+# Open the local onboarding wizard and save a tenant profile
+python agents/debrief/src/onboarding.py --tenant aerocore
+
 # Demo scenarios
 python agents/debrief/src/main.py --scenario normal
 python agents/debrief/src/main.py --scenario crisis

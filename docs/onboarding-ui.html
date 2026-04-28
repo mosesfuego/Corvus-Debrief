@@ -403,6 +403,37 @@
       line-height: 1.45;
     }
 
+    .team-config {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .mini-field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .mini-field label {
+      color: #435048;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .mini-field textarea {
+      width: 100%;
+      min-height: 70px;
+      border: 1px solid #cfd6ce;
+      border-radius: 7px;
+      color: var(--ink);
+      background: var(--field);
+      padding: 9px;
+      resize: vertical;
+    }
+
     .chip-row {
       display: flex;
       flex-wrap: wrap;
@@ -418,6 +449,45 @@
       padding: 5px 8px;
       font-size: 12px;
       font-weight: 700;
+    }
+
+    .choice-field {
+      grid-column: 1 / -1;
+    }
+
+    .choice-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .choice-chip {
+      min-height: 34px;
+      border: 1px solid #cfd6ce;
+      border-radius: 999px;
+      color: #415045;
+      background: #f2efe5;
+      padding: 7px 11px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .choice-chip.selected {
+      color: #fffdf7;
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .add-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .team-row.disabled {
+      opacity: 0.48;
     }
 
     .footer-actions {
@@ -544,7 +614,8 @@
       }
 
       .grid-2,
-      .metric-grid {
+      .metric-grid,
+      .team-config {
         grid-template-columns: 1fr;
       }
 
@@ -574,39 +645,40 @@
             <span class="step-detail">Company, site, shifts</span>
           </span>
         </button>
-        <button class="step" type="button" data-step="data">
+        <button class="step" type="button" data-step="shifts">
           <span class="step-index">2</span>
           <span>
-            <span class="step-label">Data source</span>
-            <span class="step-detail">CSV upload and schema scan</span>
-          </span>
-        </button>
-        <button class="step" type="button" data-step="mapping">
-          <span class="step-index">3</span>
-          <span>
-            <span class="step-label">Column mapping</span>
-            <span class="step-detail">Confirm AI matches</span>
+            <span class="step-label">Operating rules</span>
+            <span class="step-detail">Shifts and thresholds</span>
           </span>
         </button>
         <button class="step" type="button" data-step="teams">
-          <span class="step-index">4</span>
+          <span class="step-index">3</span>
           <span>
             <span class="step-label">Teams</span>
-            <span class="step-detail">Owners and watch signals</span>
+            <span class="step-detail">Owners and meetings</span>
           </span>
         </button>
-        <button class="step" type="button" data-step="preview">
+        <button class="step" type="button" data-step="routing">
+          <span class="step-index">4</span>
+          <span>
+            <span class="step-label">Routing rules</span>
+            <span class="step-detail">Care areas and signals</span>
+          </span>
+        </button>
+        <button class="step" type="button" data-step="review">
           <span class="step-index">5</span>
           <span>
-            <span class="step-label">First debrief</span>
-            <span class="step-detail">Preview before saving</span>
+            <span class="step-label">Review YAML</span>
+            <span class="step-detail">Save onboarding profile</span>
           </span>
         </button>
       </div>
 
       <div class="sidebar-footer">
-        Tenant profile: <strong>aerocore</strong><br>
-        Output path: <strong>shared/tenants/aerocore</strong>
+        Profile: <strong id="tenant-label">local file</strong><br>
+        Target: <strong id="output-path">onboarding.yaml</strong><br>
+        Status: <strong id="save-status">viewing</strong>
       </div>
     </aside>
 
@@ -617,8 +689,8 @@
           <p id="page-subtitle">Set the customer identity Corvus will use in every report.</p>
         </div>
         <div class="tenant-badge">
-          <span>Prospect</span>
-          <strong>AeroCore Circuitry / Plant A</strong>
+          <span id="profile-kind">Prospect</span>
+          <strong id="profile-name">AeroCore Circuitry / Plant A</strong>
         </div>
       </div>
 
@@ -644,14 +716,6 @@
                   <input id="site" value="Plant A">
                 </div>
                 <div class="field">
-                  <label for="industry">Manufacturing type</label>
-                  <select id="industry">
-                    <option>Electronics / SMT</option>
-                    <option>Medical device</option>
-                    <option>Industrial assembly</option>
-                  </select>
-                </div>
-                <div class="field">
                   <label for="timezone">Timezone</label>
                   <select id="timezone">
                     <option>America/Los_Angeles</option>
@@ -659,143 +723,110 @@
                     <option>America/New_York</option>
                   </select>
                 </div>
-                <div class="field">
-                  <label for="build-term">Build term</label>
-                  <input id="build-term" value="work order">
-                </div>
-                <div class="field">
-                  <label for="operator-term">Operator term</label>
-                  <input id="operator-term" value="operator">
+                <div class="field choice-field">
+                  <label>Manufacturing type</label>
+                  <div class="choice-bank" id="industry-bank">
+                    <button class="choice-chip selected" type="button">Electronics / SMT</button>
+                    <button class="choice-chip" type="button">Medical device</button>
+                    <button class="choice-chip" type="button">Industrial assembly</button>
+                    <button class="choice-chip" type="button">Aerospace components</button>
+                    <button class="choice-chip" type="button">Contract manufacturing</button>
+                  </div>
+                  <div class="add-row">
+                    <input id="new-industry" placeholder="Add another manufacturing type">
+                    <button class="btn" type="button" id="add-industry">Add</button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="screen hidden" id="screen-data">
-              <div class="dropzone">
-                <div>
-                  <strong>manufacturing_log.csv</strong>
-                  <span>11 columns detected, 12 sample rows scanned</span>
+            <div class="screen hidden" id="screen-shifts">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="day-shift">Day shift</label>
+                  <input id="day-shift" value="06:00 - 14:00">
+                </div>
+                <div class="field">
+                  <label for="swing-shift">Swing shift</label>
+                  <input id="swing-shift" value="14:00 - 22:00">
+                </div>
+                <div class="field">
+                  <label for="night-shift">Night shift</label>
+                  <input id="night-shift" value="22:00 - 06:00">
+                </div>
+                <div class="field">
+                  <label for="delay-threshold">Delay threshold</label>
+                  <input id="delay-threshold" value="30 minutes">
+                </div>
+                <div class="field">
+                  <label for="stall-threshold">Stall threshold</label>
+                  <input id="stall-threshold" value="20 minutes">
                 </div>
               </div>
               <div class="metric-grid">
                 <div class="metric">
-                  <strong>12</strong>
-                  <span>Rows scanned</span>
+                  <strong>3</strong>
+                  <span>Shifts</span>
                 </div>
                 <div class="metric">
-                  <strong>11</strong>
-                  <span>Columns</span>
+                  <strong>30</strong>
+                  <span>Delay min</span>
                 </div>
                 <div class="metric">
-                  <strong>6</strong>
-                  <span>Extended fields</span>
+                  <strong>20</strong>
+                  <span>Stall min</span>
                 </div>
               </div>
             </div>
 
-            <div class="screen hidden" id="screen-mapping">
+            <div class="screen hidden" id="screen-routing">
               <table>
                 <thead>
                   <tr>
-                    <th>Corvus field</th>
-                    <th>CSV column</th>
-                    <th>Confidence</th>
-                    <th>Status</th>
+                    <th>Team</th>
+                    <th>Cares about</th>
+                    <th>Watch signals</th>
+                    <th>Meeting</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td>build_id</td>
-                    <td>Job_ID</td>
-                    <td class="confidence">95%</td>
-                    <td>Accepted</td>
-                  </tr>
-                  <tr>
-                    <td>station_id</td>
-                    <td>Work_Center</td>
-                    <td class="confidence">91%</td>
-                    <td>Accepted</td>
-                  </tr>
-                  <tr>
-                    <td>status</td>
-                    <td>Status</td>
-                    <td class="confidence">90%</td>
-                    <td>Accepted</td>
-                  </tr>
-                  <tr>
-                    <td>operator_id</td>
-                    <td>Operator_ID</td>
-                    <td class="confidence">94%</td>
-                    <td>Accepted</td>
-                  </tr>
-                  <tr>
-                    <td>notes</td>
-                    <td>Comments</td>
-                    <td class="warn">78%</td>
-                    <td>Needs review</td>
-                  </tr>
-                </tbody>
+                <tbody id="routing-body"></tbody>
               </table>
             </div>
 
             <div class="screen hidden" id="screen-teams">
-              <div class="team-list">
-                <div class="team-row">
-                  <div>
-                    <strong>Production</strong>
-                    <span>Owns blocked work, SMT bottlenecks, certification gaps, and schedule recovery.</span>
-                    <div class="chip-row">
-                      <span class="chip">stalled_build</span>
-                      <span class="chip">delayed_build</span>
-                      <span class="chip">paused_build</span>
-                    </div>
-                  </div>
-                  <span class="pill">7:30am</span>
+              <div class="field choice-field">
+                <label>Select teams</label>
+                <div class="choice-bank" id="team-bank">
+                  <button class="choice-chip selected" type="button" data-team="production">Production</button>
+                  <button class="choice-chip selected" type="button" data-team="quality">Quality Assurance</button>
+                  <button class="choice-chip selected" type="button" data-team="scheduling">Scheduling</button>
+                  <button class="choice-chip" type="button" data-team="maintenance">Maintenance</button>
+                  <button class="choice-chip" type="button" data-team="supply">Supply Chain</button>
+                  <button class="choice-chip" type="button" data-team="manufacturing-engineering">Manufacturing Engineering</button>
+                  <button class="choice-chip" type="button" data-team="process-engineering">Process Engineering</button>
+                  <button class="choice-chip" type="button" data-team="test-engineering">Test Engineering</button>
+                  <button class="choice-chip" type="button" data-team="industrial-engineering">Industrial Engineering</button>
+                  <button class="choice-chip" type="button" data-team="materials">Materials</button>
+                  <button class="choice-chip" type="button" data-team="warehouse">Warehouse</button>
+                  <button class="choice-chip" type="button" data-team="procurement">Procurement</button>
+                  <button class="choice-chip" type="button" data-team="planning">Planning</button>
+                  <button class="choice-chip" type="button" data-team="shipping">Shipping / Logistics</button>
+                  <button class="choice-chip" type="button" data-team="program-management">Program Management</button>
+                  <button class="choice-chip" type="button" data-team="customer-success">Customer Success</button>
+                  <button class="choice-chip" type="button" data-team="ehs">EHS</button>
+                  <button class="choice-chip" type="button" data-team="facilities">Facilities</button>
+                  <button class="choice-chip" type="button" data-team="leadership">Leadership</button>
                 </div>
-                <div class="team-row">
-                  <div>
-                    <strong>Quality Assurance</strong>
-                    <span>Owns broker buy decisions, aerospace risk, inspection holds, and yield issues.</span>
-                    <div class="chip-row">
-                      <span class="chip">blocked_build</span>
-                      <span class="chip">qa_hold</span>
-                      <span class="chip">yield_drop</span>
-                    </div>
-                  </div>
-                  <span class="pill">8:00am</span>
-                </div>
-                <div class="team-row">
-                  <div>
-                    <strong>Scheduling</strong>
-                    <span>Owns staffing gaps, shift coverage, unassigned operators, and quick-turn conflicts.</span>
-                    <div class="chip-row">
-                      <span class="chip">unassigned_operator</span>
-                      <span class="chip">delayed_build</span>
-                    </div>
-                  </div>
-                  <span class="pill">8:15am</span>
+                <div class="add-row">
+                  <input id="new-team" placeholder="Add another team">
+                  <button class="btn" type="button" id="add-team">Add team</button>
                 </div>
               </div>
+              <div class="team-list" id="team-list"></div>
             </div>
 
-            <div class="screen hidden" id="screen-preview">
-              <div class="grid-2">
-                <div class="field">
-                  <label for="delay">Delay threshold</label>
-                  <input id="delay" value="30 minutes">
-                </div>
-                <div class="field">
-                  <label for="stall">Stall threshold</label>
-                  <input id="stall" value="20 minutes">
-                </div>
-              </div>
-              <div class="preview">
-                <b>Blocked:</b> ACS-2241 is stopped on SMT_SIPLACE_B because ERR_FEED_MISMATCH repeated at feeder position 22 and the Aero Medical operator certification is expired.
-                <br><br>
-                <b>Needs decision:</b> ACS-2198 is held in Kitting for a broker buy substitution pending QA approval.
-                <br><br>
-                <b>Route:</b> Production owns line recovery, Quality Assurance owns the broker buy call, Scheduling owns the unassigned quick-turn job.
-              </div>
+            <div class="screen hidden" id="screen-review">
+              <pre class="preview" id="yaml-preview"></pre>
             </div>
           </div>
 
@@ -821,16 +852,16 @@
             <h3>Readiness check</h3>
             <div class="metric-grid">
               <div class="metric">
-                <strong class="confidence">8</strong>
-                <span>Mapped</span>
+                <strong class="confidence" id="team-count">3</strong>
+                <span>Teams</span>
               </div>
               <div class="metric">
-                <strong class="warn">1</strong>
-                <span>Review</span>
+                <strong class="warn">3</strong>
+                <span>Shifts</span>
               </div>
               <div class="metric">
-                <strong class="danger">2</strong>
-                <span>Risks</span>
+                <strong class="danger" id="signal-count">7</strong>
+                <span>Signals</span>
               </div>
             </div>
           </section>
@@ -844,10 +875,152 @@
     const screens = Array.from(document.querySelectorAll(".screen"));
     const titles = {
       profile: ["Plant profile", "Set the customer identity Corvus will use in every report.", "Customer details", "This profile becomes the tenant-scoped onboarding record.", "Draft profile"],
-      data: ["Data source", "Upload the export Corvus will learn from.", "CSV intake", "Corvus scans headers and sample rows before proposing a schema map.", "CSV detected"],
-      mapping: ["Column mapping", "Review the AI proposed field matches.", "Schema review", "High-confidence matches are accepted, uncertain fields wait for confirmation.", "Needs review"],
-      teams: ["Teams", "Route findings to the people who can act.", "Team routing", "Each team gets cares_about terms, watch signals, and a meeting target.", "Routing ready"],
-      preview: ["First debrief", "See the operational brief before saving the profile.", "Report preview", "This is the first customer-visible value moment.", "Ready to save"]
+      shifts: ["Operating rules", "Set shift windows and the thresholds Corvus uses to call out risk.", "Shifts and thresholds", "These values become the onboarding thresholds and shift schedule.", "Rules ready"],
+      teams: ["Teams", "Capture the operating groups that receive findings.", "Team setup", "Each team gets a meeting target and ownership area.", "Teams ready"],
+      routing: ["Routing rules", "Define what each team cares about and which signals they watch.", "Care areas and watch signals", "These rules help Corvus route recommendations to the right meeting.", "Routing ready"],
+      review: ["Review YAML", "Confirm the customer profile before it is saved.", "Onboarding profile", "This is the tenant-scoped onboarding record the app will write.", "Ready to save"]
+    };
+    const teamTemplates = {
+      production: {
+        name: "Production",
+        meeting: "7:30am",
+        description: "Owns line recovery, production flow, and immediate execution decisions.",
+        cares: ["blocked builds", "SMT bottlenecks", "certification gaps", "on-time delivery"],
+        signals: ["stalled_build", "delayed_build", "paused_build"]
+      },
+      quality: {
+        name: "Quality Assurance",
+        meeting: "8:00am",
+        description: "Owns holds, inspection risk, yield issues, and release decisions.",
+        cares: ["QA holds", "broker buy approvals", "aerospace customer risk", "yield issues"],
+        signals: ["blocked_build", "qa_hold", "yield_drop", "decision_required"]
+      },
+      scheduling: {
+        name: "Scheduling",
+        meeting: "8:15am",
+        description: "Owns staffing, shift coverage, priority conflicts, and recovery sequencing.",
+        cares: ["staffing gaps", "shift coverage", "unassigned operators", "quick-turn conflicts"],
+        signals: ["unassigned_operator", "delayed_build"]
+      },
+      maintenance: {
+        name: "Maintenance",
+        meeting: "On demand",
+        description: "Owns equipment downtime, repair ETA, and recurring machine faults.",
+        cares: ["equipment downtime", "repair ETA", "recurring machine faults"],
+        signals: ["stalled_build", "equipment_fault", "paused_build"]
+      },
+      supply: {
+        name: "Supply Chain",
+        meeting: "9:00am",
+        description: "Owns shortages, substitutions, supplier escalations, and material availability.",
+        cares: ["material shortages", "supplier escalations", "substitutions", "line-side availability"],
+        signals: ["material_shortage", "supplier_delay", "decision_required"]
+      },
+      "manufacturing-engineering": {
+        name: "Manufacturing Engineering",
+        meeting: "Weekly",
+        description: "Owns process capability, fixtures, tooling, and manufacturability gaps.",
+        cares: ["process capability", "tooling gaps", "fixture issues", "repeat defects"],
+        signals: ["stalled_build", "yield_drop", "rework_queue"]
+      },
+      "process-engineering": {
+        name: "Process Engineering",
+        meeting: "Weekly",
+        description: "Owns process drift, work instructions, and recurring production patterns.",
+        cares: ["process drift", "work instruction gaps", "recurring defects"],
+        signals: ["yield_drop", "rework_queue", "pattern_detected"]
+      },
+      "test-engineering": {
+        name: "Test Engineering",
+        meeting: "Daily",
+        description: "Owns test station health, failed tests, and diagnostic bottlenecks.",
+        cares: ["test failures", "diagnostic backlog", "station calibration"],
+        signals: ["test_failure", "stalled_build", "yield_drop"]
+      },
+      "industrial-engineering": {
+        name: "Industrial Engineering",
+        meeting: "Weekly",
+        description: "Owns throughput, takt time, labor balance, and WIP flow.",
+        cares: ["throughput", "labor balance", "WIP limits", "station utilization"],
+        signals: ["delayed_build", "stalled_build", "capacity_risk"]
+      },
+      materials: {
+        name: "Materials",
+        meeting: "Daily",
+        description: "Owns kitting readiness, shortages, substitutions, and floor material movement.",
+        cares: ["kitting readiness", "part shortages", "material holds", "line-side inventory"],
+        signals: ["material_shortage", "blocked_build", "delayed_build"]
+      },
+      warehouse: {
+        name: "Warehouse",
+        meeting: "Daily",
+        description: "Owns receiving, picking, inventory accuracy, and internal material flow.",
+        cares: ["receiving backlog", "picking delays", "inventory accuracy"],
+        signals: ["material_shortage", "supplier_delay", "delayed_build"]
+      },
+      procurement: {
+        name: "Procurement",
+        meeting: "Weekly",
+        description: "Owns buys, alternates, supplier response, and escalation timing.",
+        cares: ["supplier response", "alternate parts", "broker buys", "purchase order risk"],
+        signals: ["supplier_delay", "material_shortage", "decision_required"]
+      },
+      planning: {
+        name: "Planning",
+        meeting: "Daily",
+        description: "Owns plan changes, customer priority, capacity tradeoffs, and commit dates.",
+        cares: ["priority changes", "capacity tradeoffs", "commit dates", "at-risk orders"],
+        signals: ["delayed_build", "capacity_risk", "decision_required"]
+      },
+      shipping: {
+        name: "Shipping / Logistics",
+        meeting: "Daily",
+        description: "Owns shipment readiness, carrier timing, and late-order handoff.",
+        cares: ["shipment readiness", "carrier cutoff", "late order handoff"],
+        signals: ["shipment_risk", "delayed_build"]
+      },
+      "program-management": {
+        name: "Program Management",
+        meeting: "Daily",
+        description: "Owns customer commitments, escalations, and cross-team decision tracking.",
+        cares: ["customer commitments", "escalations", "decision follow-up"],
+        signals: ["decision_required", "delayed_build", "blocked_build"]
+      },
+      "customer-success": {
+        name: "Customer Success",
+        meeting: "As needed",
+        description: "Owns customer communication, expectation setting, and account health.",
+        cares: ["customer communication", "expectation setting", "account risk"],
+        signals: ["shipment_risk", "delayed_build", "executive_escalation"]
+      },
+      ehs: {
+        name: "EHS",
+        meeting: "As needed",
+        description: "Owns safety holds, environmental controls, and compliance incidents.",
+        cares: ["safety holds", "environmental controls", "compliance incidents"],
+        signals: ["safety_incident", "paused_build", "decision_required"]
+      },
+      facilities: {
+        name: "Facilities",
+        meeting: "As needed",
+        description: "Owns facility issues that stop or constrain production.",
+        cares: ["utility outages", "temperature drift", "facility constraints"],
+        signals: ["facilities_issue", "paused_build", "stalled_build"]
+      },
+      leadership: {
+        name: "Leadership",
+        meeting: "Daily pulse",
+        description: "Owns executive tradeoffs, customer-risk decisions, and escalation closure.",
+        cares: ["customer risk", "major blockers", "executive tradeoffs"],
+        signals: ["executive_escalation", "decision_required", "blocked_build"]
+      }
+    };
+    const onboardingState = {
+      apiAvailable: false,
+      sourcePath: null,
+      tenant: null,
+      terminology: { build: "build", operator: "operator" },
+      preserved: {}
     };
     let current = 0;
 
@@ -866,6 +1039,8 @@
       document.getElementById("panel-pill").textContent = copy[4];
       document.getElementById("back").disabled = current === 0;
       document.getElementById("next").textContent = current === steps.length - 1 ? "Save profile" : "Continue";
+      if (key === "routing") renderTeamViews();
+      if (key === "review") renderYamlPreview();
     }
 
     steps.forEach((step, index) => {
@@ -873,8 +1048,394 @@
     });
 
     document.getElementById("back").addEventListener("click", () => showStep(current - 1));
-    document.getElementById("next").addEventListener("click", () => showStep(current + 1));
+    document.getElementById("next").addEventListener("click", () => {
+      if (current === steps.length - 1) {
+        saveOnboarding();
+        return;
+      }
+      showStep(current + 1);
+    });
+
+    function bindSelectableChips(containerId, singleSelect = false) {
+      const container = document.getElementById(containerId);
+      container.addEventListener("click", (event) => {
+        const chip = event.target.closest(".choice-chip");
+        if (!chip) return;
+        if (singleSelect) {
+          container.querySelectorAll(".choice-chip").forEach((item) => item.classList.remove("selected"));
+        }
+        chip.classList.toggle("selected");
+        renderTeamViews();
+        renderYamlPreview();
+      });
+    }
+
+    function addChip(inputId, containerId, buttonId, teamMode = false) {
+      const input = document.getElementById(inputId);
+      const container = document.getElementById(containerId);
+      document.getElementById(buttonId).addEventListener("click", () => {
+        const value = input.value.trim();
+        if (!value) return;
+        const chip = document.createElement("button");
+        chip.className = "choice-chip selected";
+        chip.type = "button";
+        chip.textContent = value;
+        if (teamMode) {
+          const teamKey = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          if (teamTemplates[teamKey]) {
+            container.querySelector(`[data-team="${teamKey}"]`)?.classList.add("selected");
+            input.value = "";
+            renderTeamViews();
+            return;
+          }
+          chip.dataset.team = teamKey;
+          teamTemplates[teamKey] = {
+            name: value,
+            meeting: "New",
+            description: "Custom team added for this customer profile.",
+            cares: ["customer-specific priorities"],
+            signals: ["delayed_build"]
+          };
+        }
+        container.appendChild(chip);
+        input.value = "";
+        renderTeamViews();
+        renderYamlPreview();
+      });
+    }
+
+    function selectedTeamKeys() {
+      return Array.from(document.querySelectorAll("#team-bank .choice-chip.selected"))
+        .map((chip) => chip.dataset.team)
+        .filter(Boolean);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function slugify(value) {
+      return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+
+    function teamKeyForName(name) {
+      const lowerName = name.toLowerCase();
+      const existing = Object.entries(teamTemplates)
+        .find(([, team]) => team.name.toLowerCase() === lowerName);
+      return existing ? existing[0] : slugify(name);
+    }
+
+    function splitList(value) {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    function parseMinutes(value, fallback) {
+      const match = String(value).match(/\d+/);
+      return match ? Number(match[0]) : fallback;
+    }
+
+    function parseShift(value, fallbackName) {
+      const parts = String(value).split("-");
+      return {
+        name: fallbackName,
+        start: (parts[0] || "").trim(),
+        end: (parts[1] || "").trim()
+      };
+    }
+
+    function formatShift(shift, fallback) {
+      if (!shift) return fallback;
+      return `${shift.start || ""} - ${shift.end || ""}`.trim();
+    }
+
+    function selectedIndustry() {
+      return document.querySelector("#industry-bank .choice-chip.selected")?.textContent.trim() || "";
+    }
+
+    function ensureChoice(containerId, label, selected = false, dataset = {}) {
+      if (!label) return null;
+      const container = document.getElementById(containerId);
+      const existing = Array.from(container.querySelectorAll(".choice-chip"))
+        .find((chip) => chip.textContent.trim().toLowerCase() === label.toLowerCase());
+      if (existing) {
+        existing.classList.toggle("selected", selected);
+        return existing;
+      }
+      const chip = document.createElement("button");
+      chip.className = `choice-chip${selected ? " selected" : ""}`;
+      chip.type = "button";
+      chip.textContent = label;
+      Object.entries(dataset).forEach(([key, value]) => {
+        chip.dataset[key] = value;
+      });
+      container.appendChild(chip);
+      return chip;
+    }
+
+    function renderTeamRows(keys) {
+      const list = document.getElementById("team-list");
+      if (!keys.length) {
+        list.innerHTML = `
+          <div class="team-row disabled">
+            <div>
+              <strong>No teams selected</strong>
+              <span>Select at least one team or add a custom team to build the onboarding profile.</span>
+            </div>
+            <span class="pill">Empty</span>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = keys.map((key) => {
+        const team = teamTemplates[key];
+        return `
+          <div class="team-row" data-team-row="${key}">
+            <div>
+              <strong>${escapeHtml(team.name)}</strong>
+              <span>${escapeHtml(team.description)}</span>
+              <div class="team-config">
+                <div class="mini-field">
+                  <label>Cares about</label>
+                  <textarea data-team-key="${key}" data-field="cares">${escapeHtml(team.cares.join(", "))}</textarea>
+                </div>
+                <div class="mini-field">
+                  <label>Watch signals</label>
+                  <textarea data-team-key="${key}" data-field="signals">${escapeHtml(team.signals.join(", "))}</textarea>
+                </div>
+              </div>
+            </div>
+            <span class="pill">${escapeHtml(team.meeting)}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function getTeamConfig(key) {
+      const team = teamTemplates[key];
+      const caresInput = document.querySelector(`[data-team-key="${key}"][data-field="cares"]`);
+      const signalsInput = document.querySelector(`[data-team-key="${key}"][data-field="signals"]`);
+      return {
+        ...team,
+        cares: caresInput ? splitList(caresInput.value) : team.cares,
+        signals: signalsInput ? splitList(signalsInput.value) : team.signals
+      };
+    }
+
+    function renderRoutingRows(keys) {
+      const body = document.getElementById("routing-body");
+      body.innerHTML = keys.map((key) => {
+        const team = getTeamConfig(key);
+        return `
+          <tr>
+            <td>${escapeHtml(team.name)}</td>
+            <td>${escapeHtml(team.cares.join(", "))}</td>
+            <td>${escapeHtml(team.signals.join(", "))}</td>
+            <td>${escapeHtml(team.meeting)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderTeamViews() {
+      const keys = selectedTeamKeys();
+      const signalCount = new Set(keys.flatMap((key) => getTeamConfig(key).signals)).size;
+      renderTeamRows(keys);
+      renderRoutingRows(keys);
+      document.getElementById("team-count").textContent = keys.length;
+      document.getElementById("signal-count").textContent = signalCount;
+    }
+
+    function collectOnboarding() {
+      const keys = selectedTeamKeys();
+      return {
+        ...onboardingState.preserved,
+        schema_version: "1.0",
+        company: document.getElementById("company").value.trim(),
+        site: document.getElementById("site").value.trim(),
+        timezone: document.getElementById("timezone").value,
+        manufacturing_type: selectedIndustry(),
+        terminology: onboardingState.terminology,
+        thresholds: {
+          delay_minutes: parseMinutes(document.getElementById("delay-threshold").value, 30),
+          stall_minutes: parseMinutes(document.getElementById("stall-threshold").value, 20)
+        },
+        shifts: [
+          parseShift(document.getElementById("day-shift").value, "Day Shift"),
+          parseShift(document.getElementById("swing-shift").value, "Swing Shift"),
+          parseShift(document.getElementById("night-shift").value, "Night Shift")
+        ],
+        teams: keys.map((key) => {
+          const team = getTeamConfig(key);
+          return {
+            name: team.name,
+            cares_about: team.cares,
+            watch_signals: team.signals,
+            meeting: team.meeting
+          };
+        })
+      };
+    }
+
+    function toYamlPreview(data) {
+      const lines = [
+        `schema_version: "${data.schema_version}"`,
+        `company: "${data.company}"`,
+        `site: "${data.site}"`,
+        `timezone: "${data.timezone}"`,
+        `manufacturing_type: "${data.manufacturing_type}"`,
+        "thresholds:",
+        `  delay_minutes: ${data.thresholds.delay_minutes}`,
+        `  stall_minutes: ${data.thresholds.stall_minutes}`,
+        "shifts:",
+        ...data.shifts.map((shift) => `  - name: "${shift.name}"\n    start: "${shift.start}"\n    end: "${shift.end}"`),
+        "teams:",
+        ...data.teams.map((team) => {
+          const cares = team.cares_about.map((item) => `      - "${item}"`).join("\n");
+          const signals = team.watch_signals.map((item) => `      - ${item}`).join("\n");
+          return `  - name: "${team.name}"\n    cares_about:\n${cares}\n    watch_signals:\n${signals}\n    meeting: "${team.meeting}"`;
+        })
+      ];
+      return lines.join("\n");
+    }
+
+    function renderYamlPreview() {
+      const preview = document.getElementById("yaml-preview");
+      if (!preview) return;
+      preview.textContent = toYamlPreview(collectOnboarding());
+    }
+
+    function setStatus(message) {
+      document.getElementById("save-status").textContent = message;
+    }
+
+    function applyOnboarding(data, meta = {}) {
+      if (!data || typeof data !== "object") return;
+      onboardingState.terminology = data.terminology || onboardingState.terminology;
+      onboardingState.preserved = {};
+      if (data.csv_connector) onboardingState.preserved.csv_connector = data.csv_connector;
+
+      document.getElementById("company").value = data.company || "AeroCore Circuitry";
+      document.getElementById("site").value = data.site || "Plant A";
+      document.getElementById("profile-name").textContent = `${document.getElementById("company").value} / ${document.getElementById("site").value}`;
+      document.getElementById("profile-kind").textContent = meta.tenant ? "Tenant" : "Profile";
+      document.getElementById("tenant-label").textContent = meta.tenant || "default";
+      document.getElementById("output-path").textContent = meta.path || "onboarding.yaml";
+
+      const industry = data.manufacturing_type || data.industry;
+      if (industry) {
+        document.querySelectorAll("#industry-bank .choice-chip").forEach((chip) => chip.classList.remove("selected"));
+        ensureChoice("industry-bank", industry, true);
+      }
+
+      const shifts = data.shifts || [];
+      document.getElementById("day-shift").value = formatShift(shifts[0], "06:00 - 14:00");
+      document.getElementById("swing-shift").value = formatShift(shifts[1], "14:00 - 22:00");
+      document.getElementById("night-shift").value = formatShift(shifts[2], "22:00 - 06:00");
+
+      const thresholds = data.thresholds || {};
+      document.getElementById("delay-threshold").value = `${thresholds.delay_minutes || 30} minutes`;
+      document.getElementById("stall-threshold").value = `${thresholds.stall_minutes || 20} minutes`;
+
+      document.querySelectorAll("#team-bank .choice-chip").forEach((chip) => chip.classList.remove("selected"));
+      (data.teams || []).forEach((team) => {
+        const key = teamKeyForName(team.name);
+        if (!teamTemplates[key]) {
+          teamTemplates[key] = {
+            name: team.name,
+            meeting: team.meeting || "New",
+            description: "Custom team loaded from onboarding.yaml.",
+            cares: team.cares_about || ["customer-specific priorities"],
+            signals: team.watch_signals || ["delayed_build"]
+          };
+          ensureChoice("team-bank", team.name, true, { team: key });
+          return;
+        }
+        teamTemplates[key] = {
+          ...teamTemplates[key],
+          meeting: team.meeting || teamTemplates[key].meeting,
+          cares: team.cares_about || teamTemplates[key].cares,
+          signals: team.watch_signals || teamTemplates[key].signals
+        };
+        document.querySelector(`[data-team="${key}"]`)?.classList.add("selected");
+      });
+
+      renderTeamViews();
+      renderYamlPreview();
+    }
+
+    async function loadOnboarding() {
+      try {
+        const response = await fetch("/api/onboarding");
+        if (!response.ok) throw new Error("API unavailable");
+        const payload = await response.json();
+        onboardingState.apiAvailable = true;
+        onboardingState.sourcePath = payload.path;
+        onboardingState.tenant = payload.tenant;
+        applyOnboarding(payload.data, payload);
+        setStatus("loaded");
+      } catch {
+        onboardingState.apiAvailable = false;
+        setStatus("preview only");
+        renderTeamViews();
+        renderYamlPreview();
+      }
+    }
+
+    async function saveOnboarding() {
+      renderYamlPreview();
+      if (!onboardingState.apiAvailable) {
+        setStatus("launch via python command to save");
+        return;
+      }
+      setStatus("saving...");
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(collectOnboarding())
+      });
+      if (!response.ok) {
+        setStatus("save failed");
+        return;
+      }
+      const payload = await response.json();
+      onboardingState.sourcePath = payload.path;
+      setStatus("saved");
+    }
+
+    document.getElementById("company").addEventListener("input", () => {
+      document.getElementById("profile-name").textContent = `${document.getElementById("company").value} / ${document.getElementById("site").value}`;
+      renderYamlPreview();
+    });
+    document.getElementById("site").addEventListener("input", () => {
+      document.getElementById("profile-name").textContent = `${document.getElementById("company").value} / ${document.getElementById("site").value}`;
+      renderYamlPreview();
+    });
+    document.getElementById("team-list").addEventListener("input", (event) => {
+      const input = event.target.closest("textarea[data-team-key]");
+      if (input) {
+        const team = teamTemplates[input.dataset.teamKey];
+        team[input.dataset.field] = splitList(input.value);
+        renderRoutingRows(selectedTeamKeys());
+      }
+      renderYamlPreview();
+    });
+    ["timezone", "day-shift", "swing-shift", "night-shift", "delay-threshold", "stall-threshold"]
+      .forEach((id) => document.getElementById(id).addEventListener("input", renderYamlPreview));
+
+    bindSelectableChips("industry-bank", true);
+    bindSelectableChips("team-bank");
+    addChip("new-industry", "industry-bank", "add-industry");
+    addChip("new-team", "team-bank", "add-team", true);
     showStep(0);
+    loadOnboarding();
   </script>
 </body>
 </html>
