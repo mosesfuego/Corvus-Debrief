@@ -26,6 +26,10 @@ venv/
 Thumbs.db
 reports/
 shared/memory/log.json
+shared/tenants/*/onboarding.yaml
+shared/tenants/*/reports/
+shared/tenants/*/memory/
+shared/tenants/*/uploads/
 # Local config overrides (may contain API keys)
 #config/config.local.yaml
 #config/onboarding.local.yaml

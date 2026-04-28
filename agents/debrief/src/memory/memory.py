@@ -16,20 +16,26 @@ _MEMORY_DIR = os.path.join(_SHARED_DIR, "memory")
 MEMORY_PATH = os.path.join(_MEMORY_DIR, "log.json")
 
 
-def load_memory() -> dict:
+def _memory_path(config: dict = None) -> str:
+    tenant = (config or {}).get("_tenant", {})
+    return tenant.get("memory_path") or MEMORY_PATH
+
+
+def load_memory(config: dict = None) -> dict:
     """Load existing memory log."""
-    if not os.path.exists(MEMORY_PATH):
+    path = _memory_path(config)
+    if not os.path.exists(path):
         return {"runs": []}
-    with open(MEMORY_PATH, "r") as f:
+    with open(path, "r") as f:
         return json.load(f)
 
 
-def save_run(flags: list[dict], evaluated_builds: list[dict]):
+def save_run(flags: list[dict], evaluated_builds: list[dict], config: dict = None):
     """
     Append current run to memory log.
     Called at end of every debrief.
     """
-    memory = load_memory()
+    memory = load_memory(config)
 
     blocked = [
         m for m in evaluated_builds
@@ -59,16 +65,17 @@ def save_run(flags: list[dict], evaluated_builds: list[dict]):
     memory["runs"].append(run)
     memory["runs"] = memory["runs"][-30:]
 
-    os.makedirs(_MEMORY_DIR, exist_ok=True)
-    with open(MEMORY_PATH, "w") as f:
+    path = _memory_path(config)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
         json.dump(memory, f, indent=2)
 
 
-def get_recent_context(lookback: int = 5) -> str:
+def get_recent_context(lookback: int = 5, config: dict = None) -> str:
     """
     Plain text summary of recent runs for the system prompt.
     """
-    memory = load_memory()
+    memory = load_memory(config)
     runs = memory.get("runs", [])[-lookback:]
 
     if not runs:

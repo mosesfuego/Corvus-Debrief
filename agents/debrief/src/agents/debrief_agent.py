@@ -245,7 +245,7 @@ CUSTOMER CONTEXT:
 """
 
     # inject memory context
-    recent_context = get_recent_context(lookback=5)
+    recent_context = get_recent_context(lookback=5, config=config)
     system_prompt += f"\n\n---\n\n{recent_context}"
 
     messages = [

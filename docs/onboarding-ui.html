@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corvus Onboarding Wizard</title>
+  <style>
+    :root {
+      --ink: #17211b;
+      --muted: #66736b;
+      --line: #d9dfd8;
+      --paper: #f6f4ee;
+      --panel: #fffdf7;
+      --field: #f0eee6;
+      --green: #2f6f4f;
+      --green-dark: #214d39;
+      --amber: #b97724;
+      --red: #b4453c;
+      --blue: #416b93;
+      --shadow: 0 18px 50px rgba(23, 33, 27, 0.14);
+      --radius: 8px;
+      font-family: "Aptos", "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(120deg, rgba(47, 111, 79, 0.10), transparent 34%),
+        linear-gradient(180deg, #fbfaf5 0%, var(--paper) 100%);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 284px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      padding: 28px 22px;
+      background: #17211b;
+      color: #f7f1df;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 34px;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(247, 241, 223, 0.34);
+      border-radius: 8px;
+      background: rgba(247, 241, 223, 0.10);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .brand span {
+      display: block;
+      color: #bcc8ba;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 8px;
+    }
+
+    .step {
+      width: 100%;
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 9px;
+      text-align: left;
+      color: #dde7d7;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .step:hover,
+    .step.active {
+      border-color: rgba(247, 241, 223, 0.24);
+      background: rgba(247, 241, 223, 0.08);
+    }
+
+    .step-index {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #17211b;
+      background: #d8c38c;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .step.active .step-index {
+      background: #f5d45f;
+    }
+
+    .step-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .step-detail {
+      display: block;
+      color: #9eaa9a;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+
+    .sidebar-footer {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 24px;
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(247, 241, 223, 0.08);
+      color: #bcc8ba;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    main {
+      min-width: 0;
+      padding: 30px;
+    }
+
+    .topbar {
+      min-height: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 26px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .title p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tenant-badge {
+      min-width: 220px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: rgba(255, 253, 247, 0.74);
+      box-shadow: 0 10px 28px rgba(23, 33, 27, 0.08);
+    }
+
+    .tenant-badge span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tenant-badge strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 22px 22px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h2,
+    .side-panel h3 {
+      margin: 0;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    .panel-header p,
+    .side-panel p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--green-dark);
+      background: #e3efe6;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .panel-body {
+      padding: 22px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: #435048;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #cfd6ce;
+      border-radius: 7px;
+      color: var(--ink);
+      background: var(--field);
+      padding: 10px 11px;
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 94px;
+      resize: vertical;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.14);
+    }
+
+    .dropzone {
+      min-height: 170px;
+      border: 1px dashed #9eaa9a;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        linear-gradient(135deg, rgba(47, 111, 79, 0.07), transparent),
+        #f8f6ee;
+      text-align: center;
+    }
+
+    .dropzone strong {
+      display: block;
+      font-size: 17px;
+      margin-bottom: 6px;
+    }
+
+    .dropzone span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #435048;
+      background: #ece8dc;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .confidence {
+      font-weight: 800;
+      color: var(--green-dark);
+    }
+
+    .warn {
+      color: var(--amber);
+    }
+
+    .danger {
+      color: var(--red);
+    }
+
+    .team-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .team-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfaf4;
+    }
+
+    .team-row strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .team-row span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f2efe5;
+      color: #415045;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .footer-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 22px;
+      border-top: 1px solid var(--line);
+      background: #f8f5ec;
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .btn {
+      min-height: 40px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--ink);
+      background: #ede8d9;
+    }
+
+    .btn.primary {
+      color: #fffdf7;
+      background: var(--green);
+    }
+
+    .btn.primary:hover {
+      background: var(--green-dark);
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .side-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 247, 0.84);
+      padding: 18px;
+      box-shadow: 0 12px 32px rgba(23, 33, 27, 0.10);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfaf4;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 20px;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .preview {
+      border-left: 4px solid var(--green);
+      padding-left: 14px;
+      color: #2a372e;
+      line-height: 1.55;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+
+    .preview b {
+      color: var(--red);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .sidebar-footer {
+        position: static;
+        margin-top: 18px;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .tenant-badge {
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 680px) {
+      main {
+        padding: 18px;
+      }
+
+      .grid-2,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-header,
+      .footer-actions {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Onboarding steps">
+      <div class="brand">
+        <div class="mark">C</div>
+        <div>
+          <strong>Corvus</strong>
+          <span>Customer onboarding</span>
+        </div>
+      </div>
+
+      <div class="steps">
+        <button class="step active" type="button" data-step="profile">
+          <span class="step-index">1</span>
+          <span>
+            <span class="step-label">Plant profile</span>
+            <span class="step-detail">Company, site, shifts</span>
+          </span>
+        </button>
+        <button class="step" type="button" data-step="data">
+          <span class="step-index">2</span>
+          <span>
+            <span class="step-label">Data source</span>
+            <span class="step-detail">CSV upload and schema scan</span>
+          </span>
+        </button>
+        <button class="step" type="button" data-step="mapping">
+          <span class="step-index">3</span>
+          <span>
+            <span class="step-label">Column mapping</span>
+            <span class="step-detail">Confirm AI matches</span>
+          </span>
+        </button>
+        <button class="step" type="button" data-step="teams">
+          <span class="step-index">4</span>
+          <span>
+            <span class="step-label">Teams</span>
+            <span class="step-detail">Owners and watch signals</span>
+          </span>
+        </button>
+        <button class="step" type="button" data-step="preview">
+          <span class="step-index">5</span>
+          <span>
+            <span class="step-label">First debrief</span>
+            <span class="step-detail">Preview before saving</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        Tenant profile: <strong>aerocore</strong><br>
+        Output path: <strong>shared/tenants/aerocore</strong>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div class="title">
+          <h1 id="page-title">Plant profile</h1>
+          <p id="page-subtitle">Set the customer identity Corvus will use in every report.</p>
+        </div>
+        <div class="tenant-badge">
+          <span>Prospect</span>
+          <strong>AeroCore Circuitry / Plant A</strong>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 id="panel-title">Customer details</h2>
+              <p id="panel-copy">This profile becomes the tenant-scoped onboarding record.</p>
+            </div>
+            <span class="pill" id="panel-pill">Draft profile</span>
+          </div>
+
+          <div class="panel-body">
+            <div class="screen" id="screen-profile">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="company">Company</label>
+                  <input id="company" value="AeroCore Circuitry">
+                </div>
+                <div class="field">
+                  <label for="site">Site</label>
+                  <input id="site" value="Plant A">
+                </div>
+                <div class="field">
+                  <label for="industry">Manufacturing type</label>
+                  <select id="industry">
+                    <option>Electronics / SMT</option>
+                    <option>Medical device</option>
+                    <option>Industrial assembly</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="timezone">Timezone</label>
+                  <select id="timezone">
+                    <option>America/Los_Angeles</option>
+                    <option>America/Chicago</option>
+                    <option>America/New_York</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="build-term">Build term</label>
+                  <input id="build-term" value="work order">
+                </div>
+                <div class="field">
+                  <label for="operator-term">Operator term</label>
+                  <input id="operator-term" value="operator">
+                </div>
+              </div>
+            </div>
+
+            <div class="screen hidden" id="screen-data">
+              <div class="dropzone">
+                <div>
+                  <strong>manufacturing_log.csv</strong>
+                  <span>11 columns detected, 12 sample rows scanned</span>
+                </div>
+              </div>
+              <div class="metric-grid">
+                <div class="metric">
+                  <strong>12</strong>
+                  <span>Rows scanned</span>
+                </div>
+                <div class="metric">
+                  <strong>11</strong>
+                  <span>Columns</span>
+                </div>
+                <div class="metric">
+                  <strong>6</strong>
+                  <span>Extended fields</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="screen hidden" id="screen-mapping">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Corvus field</th>
+                    <th>CSV column</th>
+                    <th>Confidence</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>build_id</td>
+                    <td>Job_ID</td>
+                    <td class="confidence">95%</td>
+                    <td>Accepted</td>
+                  </tr>
+                  <tr>
+                    <td>station_id</td>
+                    <td>Work_Center</td>
+                    <td class="confidence">91%</td>
+                    <td>Accepted</td>
+                  </tr>
+                  <tr>
+                    <td>status</td>
+                    <td>Status</td>
+                    <td class="confidence">90%</td>
+                    <td>Accepted</td>
+                  </tr>
+                  <tr>
+                    <td>operator_id</td>
+                    <td>Operator_ID</td>
+                    <td class="confidence">94%</td>
+                    <td>Accepted</td>
+                  </tr>
+                  <tr>
+                    <td>notes</td>
+                    <td>Comments</td>
+                    <td class="warn">78%</td>
+                    <td>Needs review</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="screen hidden" id="screen-teams">
+              <div class="team-list">
+                <div class="team-row">
+                  <div>
+                    <strong>Production</strong>
+                    <span>Owns blocked work, SMT bottlenecks, certification gaps, and schedule recovery.</span>
+                    <div class="chip-row">
+                      <span class="chip">stalled_build</span>
+                      <span class="chip">delayed_build</span>
+                      <span class="chip">paused_build</span>
+                    </div>
+                  </div>
+                  <span class="pill">7:30am</span>
+                </div>
+                <div class="team-row">
+                  <div>
+                    <strong>Quality Assurance</strong>
+                    <span>Owns broker buy decisions, aerospace risk, inspection holds, and yield issues.</span>
+                    <div class="chip-row">
+                      <span class="chip">blocked_build</span>
+                      <span class="chip">qa_hold</span>
+                      <span class="chip">yield_drop</span>
+                    </div>
+                  </div>
+                  <span class="pill">8:00am</span>
+                </div>
+                <div class="team-row">
+                  <div>
+                    <strong>Scheduling</strong>
+                    <span>Owns staffing gaps, shift coverage, unassigned operators, and quick-turn conflicts.</span>
+                    <div class="chip-row">
+                      <span class="chip">unassigned_operator</span>
+                      <span class="chip">delayed_build</span>
+                    </div>
+                  </div>
+                  <span class="pill">8:15am</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="screen hidden" id="screen-preview">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="delay">Delay threshold</label>
+                  <input id="delay" value="30 minutes">
+                </div>
+                <div class="field">
+                  <label for="stall">Stall threshold</label>
+                  <input id="stall" value="20 minutes">
+                </div>
+              </div>
+              <div class="preview">
+                <b>Blocked:</b> ACS-2241 is stopped on SMT_SIPLACE_B because ERR_FEED_MISMATCH repeated at feeder position 22 and the Aero Medical operator certification is expired.
+                <br><br>
+                <b>Needs decision:</b> ACS-2198 is held in Kitting for a broker buy substitution pending QA approval.
+                <br><br>
+                <b>Route:</b> Production owns line recovery, Quality Assurance owns the broker buy call, Scheduling owns the unassigned quick-turn job.
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-actions">
+            <button class="btn" type="button" id="back">Back</button>
+            <button class="btn primary" type="button" id="next">Continue</button>
+          </div>
+        </section>
+
+        <aside class="side-stack">
+          <section class="side-panel">
+            <h3>Tenant record</h3>
+            <p>The wizard writes one private profile per customer instead of overwriting the global onboarding file.</p>
+            <div class="preview">
+              tenant: aerocore<br>
+              onboarding: onboarding.yaml<br>
+              reports: reports/<br>
+              memory: memory/log.json
+            </div>
+          </section>
+
+          <section class="side-panel">
+            <h3>Readiness check</h3>
+            <div class="metric-grid">
+              <div class="metric">
+                <strong class="confidence">8</strong>
+                <span>Mapped</span>
+              </div>
+              <div class="metric">
+                <strong class="warn">1</strong>
+                <span>Review</span>
+              </div>
+              <div class="metric">
+                <strong class="danger">2</strong>
+                <span>Risks</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const steps = Array.from(document.querySelectorAll(".step"));
+    const screens = Array.from(document.querySelectorAll(".screen"));
+    const titles = {
+      profile: ["Plant profile", "Set the customer identity Corvus will use in every report.", "Customer details", "This profile becomes the tenant-scoped onboarding record.", "Draft profile"],
+      data: ["Data source", "Upload the export Corvus will learn from.", "CSV intake", "Corvus scans headers and sample rows before proposing a schema map.", "CSV detected"],
+      mapping: ["Column mapping", "Review the AI proposed field matches.", "Schema review", "High-confidence matches are accepted, uncertain fields wait for confirmation.", "Needs review"],
+      teams: ["Teams", "Route findings to the people who can act.", "Team routing", "Each team gets cares_about terms, watch signals, and a meeting target.", "Routing ready"],
+      preview: ["First debrief", "See the operational brief before saving the profile.", "Report preview", "This is the first customer-visible value moment.", "Ready to save"]
+    };
+    let current = 0;
+
+    function showStep(index) {
+      current = Math.max(0, Math.min(index, steps.length - 1));
+      const key = steps[current].dataset.step;
+      const copy = titles[key];
+
+      steps.forEach((step, i) => step.classList.toggle("active", i === current));
+      screens.forEach((screen) => screen.classList.add("hidden"));
+      document.getElementById(`screen-${key}`).classList.remove("hidden");
+      document.getElementById("page-title").textContent = copy[0];
+      document.getElementById("page-subtitle").textContent = copy[1];
+      document.getElementById("panel-title").textContent = copy[2];
+      document.getElementById("panel-copy").textContent = copy[3];
+      document.getElementById("panel-pill").textContent = copy[4];
+      document.getElementById("back").disabled = current === 0;
+      document.getElementById("next").textContent = current === steps.length - 1 ? "Save profile" : "Continue";
+    }
+
+    steps.forEach((step, index) => {
+      step.addEventListener("click", () => showStep(index));
+    });
+
+    document.getElementById("back").addEventListener("click", () => showStep(current - 1));
+    document.getElementById("next").addEventListener("click", () => showStep(current + 1));
+    showStep(0);
+  </script>
+</body>
+</html>

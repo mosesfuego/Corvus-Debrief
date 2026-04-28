@@ -14,6 +14,7 @@ sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
 from utils.config import load_config, load_onboarding
+from utils.tenants import get_tenant_context, list_tenants
 from tools.map_csv import run as run_mapper
 from reporting.debrief_template import DebriefGenerator
 from agents.debrief_agent import run_debrief_agent
@@ -45,9 +46,19 @@ def parse_args():
         help="Path to CSV file to run against"
     )
     parser.add_argument(
+        "--tenant",
+        default=None,
+        help="Load a customer profile from shared/tenants/<tenant>/onboarding.yaml"
+    )
+    parser.add_argument(
         "--list-scenarios",
         action="store_true",
         help="List available demo scenarios"
+    )
+    parser.add_argument(
+        "--list-tenants",
+        action="store_true",
+        help="List local tenant profiles"
     )
     return parser.parse_args()
 
@@ -176,6 +187,14 @@ def main():
         print("[CORVUS] Available scenarios: normal, crisis, staffing, acs")
         return
 
+    if args.list_tenants:
+        tenants = list_tenants()
+        if tenants:
+            print("[CORVUS] Available tenants: " + ", ".join(tenants))
+        else:
+            print("[CORVUS] No local tenant profiles found.")
+        return
+
     if args.demo:
         config = build_demo_config()
         onboarding = build_demo_onboarding()
@@ -183,10 +202,20 @@ def main():
 
     else:
         config_path    = os.path.join(_AGENT_ROOT, "config", "config.yaml")
+        tenant_context = None
         onboarding_path = args.onboarding
+
+        if args.tenant:
+            tenant_context = get_tenant_context(args.tenant)
+            onboarding_path = tenant_context["onboarding_path"]
 
         config     = load_config(config_path)
         onboarding = load_onboarding(onboarding_path)
+
+        if tenant_context:
+            config["_tenant"] = tenant_context
+            config.setdefault("reporting", {})["output_dir"] = tenant_context["reports_dir"]
+            print(f"[CORVUS] Tenant profile: {tenant_context['slug']}")
 
         if args.scenario:
             config["scenario"] = args.scenario
@@ -211,7 +240,7 @@ def main():
 
     try:
         bundle = get_build_metrics(config, onboarding)
-        save_run(config.get("_flags", []), bundle.get("builds", []))
+        save_run(config.get("_flags", []), bundle.get("builds", []), config=config)
     except Exception as exc:
         print(f"[CORVUS] Memory log not updated: {exc}")
 
