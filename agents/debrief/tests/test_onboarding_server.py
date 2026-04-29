@@ -14,7 +14,12 @@ sys.path.insert(0, _PROJECT_ROOT)
 
 from pathlib import Path
 
-from onboarding import DEFAULT_ONBOARDING_PATH, merge_onboarding, resolve_onboarding_path
+from onboarding import (
+    DEFAULT_ONBOARDING_PATH,
+    dump_yaml,
+    merge_onboarding,
+    resolve_onboarding_path,
+)
 
 
 def test_merge_onboarding_updates_wizard_fields_and_preserves_connector():
@@ -66,3 +71,17 @@ def test_resolve_onboarding_path_defaults_to_project_onboarding():
 def test_resolve_onboarding_path_accepts_explicit_path(tmp_path):
     explicit = tmp_path / "customer.yaml"
     assert resolve_onboarding_path(str(explicit)) == Path(explicit).resolve()
+
+
+def test_dump_yaml_preserves_readable_field_order():
+    dumped = dump_yaml({
+        "schema_version": "1.0",
+        "company": "AeroCore",
+        "site": "Plant A",
+    })
+
+    assert dumped.splitlines()[:3] == [
+        "schema_version: '1.0'",
+        "company: AeroCore",
+        "site: Plant A",
+    ]

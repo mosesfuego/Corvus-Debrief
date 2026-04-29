@@ -25,6 +25,9 @@ No dashboards to interpret. No data to manually compile. Just intelligence, deli
 From the repository root:
 
 ```bash
+# Zero-setup ACS demo
+python agents/debrief/src/main.py --demo
+
 # Run against your own CSV
 python agents/debrief/src/main.py --csv shared/data/your_export.csv
 
@@ -32,6 +35,7 @@ python agents/debrief/src/main.py --csv shared/data/your_export.csv
 python agents/debrief/src/main.py --scenario normal
 python agents/debrief/src/main.py --scenario crisis
 python agents/debrief/src/main.py --scenario staffing
+python agents/debrief/src/main.py --scenario acs
 
 # See available scenarios
 python agents/debrief/src/main.py --list-scenarios
@@ -50,8 +54,8 @@ Reports are printed to console and saved to `reports/`.
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/corvus-debrief.git
-cd corvus-debrief
+git clone https://github.com/mosesfuego/Corvus-Debrief.git
+cd Corvus-Debrief
 
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
@@ -87,7 +91,16 @@ reporting:
 
 **Step 3 — Tell Corvus about your operation:**
 
-Edit `agents/debrief/config/onboarding.yaml`:
+Use the local onboarding wizard:
+
+```bash
+python agents/debrief/src/main.py --onboard_wizard
+```
+
+The wizard opens a browser-based setup flow that updates `agents/debrief/config/onboarding.yaml`. It captures customer identity, manufacturing type, shifts, thresholds, teams, care areas, and watch signals. CSV/MES data stays separate and is handled by the connector or mapper flow.
+
+Or edit `agents/debrief/config/onboarding.yaml` manually:
+
 ```yaml
 schema_version: "1.0"
 company: "Your Company"
@@ -297,6 +310,9 @@ Any CSV / MES / SQLite
 | `agents/debrief/src/connectors/factory.py` | Connector selector with caching |
 | `agents/debrief/src/analytics/build_metrics.py` | Enriches raw build data |
 | `agents/debrief/src/reporting/debrief_template.py` | Report formatter |
+| `agents/debrief/src/onboarding.py` | Local onboarding wizard server |
+| `docs/onboarding-ui.html` | Browser onboarding wizard UI |
+| `agents/debrief/src/connectors/scenarios/acs.py` | Built-in ACS demo scenario |
 | `agents/debrief/config/onboarding.yaml` | Your operation profile |
 | `agents/debrief/config/config.yaml` | System configuration |
 | `agents/debrief/prompts/system_prompt.txt` | Agent reasoning instructions |
@@ -307,6 +323,9 @@ Any CSV / MES / SQLite
 ## CLI Reference
 
 ```bash
+# Zero-setup demo with built-in ACS sample data and demo onboarding
+python agents/debrief/src/main.py --demo
+
 # Run against CSV (auto-maps on first run)
 python agents/debrief/src/main.py --csv shared/data/your_file.csv
 
@@ -320,6 +339,7 @@ python agents/debrief/src/main.py --onboard_wizard
 python agents/debrief/src/main.py --scenario normal
 python agents/debrief/src/main.py --scenario crisis
 python agents/debrief/src/main.py --scenario staffing
+python agents/debrief/src/main.py --scenario acs
 
 # List scenarios
 python agents/debrief/src/main.py --list-scenarios

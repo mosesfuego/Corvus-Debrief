@@ -58,7 +58,11 @@ def read_yaml(path: Path) -> dict:
 def write_yaml(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+        f.write(dump_yaml(data))
+
+
+def dump_yaml(data: dict) -> str:
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
 
 
 def merge_onboarding(existing: dict, incoming: dict) -> dict:
@@ -124,6 +128,7 @@ def make_handler(onboarding_path: Path):
                 self.send_json({
                     "path": str(onboarding_path),
                     "data": data,
+                    "yaml": dump_yaml(data),
                 })
             except Exception as exc:
                 self.send_json({"error": str(exc)}, status=500)
@@ -140,6 +145,7 @@ def make_handler(onboarding_path: Path):
                 self.send_json({
                     "path": str(onboarding_path),
                     "data": merged,
+                    "yaml": dump_yaml(merged),
                 })
             except Exception as exc:
                 self.send_json({"error": str(exc)}, status=400)
