@@ -1,9 +1,8 @@
-def get_connector(config):
-    if config["mes_type"] == "sqlite":
-        return SQLiteMESConnector(config)
-    elif config["mes_type"] == "api":
-        return APIMESConnector(config)
-    elif config["mes_type"] == "csv":
-        return CSVMESConnector(config)
-    else:
-        raise ValueError("Unsupported MES type")
+"""Compatibility wrapper for older imports.
+
+New code should import from connectors.factory.
+"""
+
+from connectors.factory import clear_connector_cache, get_connector
+
+__all__ = ["clear_connector_cache", "get_connector"]

@@ -1,5 +1,6 @@
 """Base MES connector abstract class."""
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 
 
@@ -57,12 +58,26 @@ class BaseMESConnector(ABC):
         """
         at_risk = []
         for build in self.fetch_builds():
-            planned = build.get("planned_end", "")
-            needed = build.get("needed_by_date", "")
             status = build.get("status", "")
-            if planned and needed and planned > needed and status != "Completed":
+            if status != "Completed" and self._is_late(build):
                 at_risk.append(build)
         return at_risk
+
+    def _is_late(self, build: dict) -> bool:
+        planned = self._parse_dt(build.get("planned_end"))
+        needed = self._parse_dt(build.get("needed_by_date"))
+        return bool(planned and needed and planned > needed)
+
+    @staticmethod
+    def _parse_dt(value):
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
 
     def get_efficiency_by_station(self) -> list[dict]:
         """Calculate fulfillment percentage per station.

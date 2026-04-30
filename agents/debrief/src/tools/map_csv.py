@@ -9,6 +9,7 @@ Usage (from repository root):
     python agents/debrief/src/tools/map_csv.py shared/data/input.csv \\
         --onboarding agents/debrief/config/onboarding.yaml
     python agents/debrief/src/tools/map_csv.py shared/data/input.csv --force
+    python agents/debrief/src/tools/map_csv.py shared/data/input.csv --yes --dry-run
 """
 
 import csv
@@ -17,6 +18,7 @@ import json
 import hashlib
 import argparse
 import os
+import re
 import traceback
 
 _THIS_FILE = os.path.abspath(__file__)
@@ -52,28 +54,75 @@ CORVUS_SCHEMA = {
 REQUIRED_FIELDS = ["build_id", "status"]
 CONFIDENCE_THRESHOLD = 0.85
 
+COMMON_ALIASES = {
+    "build_id": [
+        "build_id", "build", "job", "job_id", "job_number", "work_order",
+        "workorder", "work_order_id", "wo", "wo_id", "order", "order_id",
+    ],
+    "station_id": [
+        "station_id", "station", "work_center", "workcenter", "work_cell",
+        "cell", "machine", "machine_id", "line", "line_id", "operation",
+    ],
+    "operator_id": [
+        "operator_id", "operator", "technician", "tech", "employee",
+        "employee_id", "personnel", "assigned_operator",
+    ],
+    "start_time": [
+        "start_time", "started_at", "start", "timestamp", "time",
+        "created_at", "actual_start",
+    ],
+    "planned_end": [
+        "planned_end", "scheduled_end", "planned_finish", "finish_time",
+        "end_time", "expected_completion", "planned_complete",
+    ],
+    "needed_by_date": [
+        "needed_by_date", "needed_by", "due_date", "deadline",
+        "customer_due", "required_by", "ship_date", "promise_date",
+    ],
+    "target_quantity": [
+        "target_quantity", "target_qty", "qty_required", "quantity",
+        "order_qty", "planned_qty", "required_qty", "target",
+    ],
+    "completed_quantity": [
+        "completed_quantity", "completed_qty", "qty_complete", "qty_done",
+        "done_qty", "good_qty", "produced_qty", "completed",
+    ],
+    "labor_hours": [
+        "labor_hours", "labour_hours", "hours", "work_hours", "logged_hours",
+        "man_hours", "runtime_hours",
+    ],
+    "status": [
+        "status", "state", "job_status", "order_status", "current_status",
+        "work_order_status",
+    ],
+    "notes": [
+        "notes", "comments", "comment", "description", "remarks",
+        "message", "issue", "reason",
+    ],
+}
+
+VALID_STATUSES = {"Pending", "In Progress", "Completed", "Blocked", "Paused"}
+
+
+def normalize_name(value: str) -> str:
+    """Normalize a CSV/header name for deterministic matching."""
+    return re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
+
 
 def get_csv_fingerprint(file_path: str) -> str:
     """
-    Hash sorted normalized headers + first 3 data rows.
-    Detects schema changes and column reorders.
+    Hash sorted normalized headers.
+    Detects schema changes and column reorders without remapping for new data.
     """
     with open(file_path, newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
-        rows = []
-        for i, row in enumerate(reader):
-            rows.append(row)
-            if i >= 3:
-                break
+        try:
+            headers = next(reader)
+        except StopIteration:
+            raise ValueError("CSV file is empty")
 
-    if not rows:
-        raise ValueError("CSV file is empty")
-
-    headers = [h.strip().lower() for h in rows[0]]
-    sorted_headers = sorted(headers)
-    data_sample = [",".join(r) for r in rows[1:4]]
-
-    fingerprint_input = "|".join(sorted_headers) + "||" + "|".join(data_sample)
+    sorted_headers = sorted(normalize_name(h) for h in headers)
+    fingerprint_input = "|".join(sorted_headers)
     return hashlib.md5(fingerprint_input.encode()).hexdigest()[:12]
 
 
@@ -85,10 +134,10 @@ def verify_mapping_still_valid(
     Before skipping LLM call, verify mapped columns
     still exist in the current CSV.
     """
-    normalized = [h.strip().lower() for h in current_headers]
+    normalized = {normalize_name(h) for h in current_headers}
     missing = []
     for corvus_field, csv_col in column_map.items():
-        if csv_col and csv_col.strip().lower() not in normalized:
+        if csv_col and normalize_name(csv_col) not in normalized:
             missing.append(f"  '{corvus_field}' → '{csv_col}' (no longer in CSV)")
     return len(missing) == 0, missing
 
@@ -106,26 +155,94 @@ def read_csv_sample(file_path: str) -> tuple[list[str], list[dict]]:
     return headers, rows
 
 
+def resolve_header(csv_col: str | None, headers: list[str]) -> str | None:
+    """Return the actual CSV header for a proposed column, or None."""
+    if not csv_col:
+        return None
+    if csv_col in headers:
+        return csv_col
+    normalized_headers = {normalize_name(h): h for h in headers}
+    return normalized_headers.get(normalize_name(csv_col))
+
+
+def propose_mapping_with_heuristics(headers: list[str]) -> dict:
+    """Map obvious fields before spending LLM tokens."""
+    normalized_headers = {normalize_name(h): h for h in headers}
+    mapping = {}
+
+    for field, aliases in COMMON_ALIASES.items():
+        match = None
+        for alias in aliases:
+            match = normalized_headers.get(normalize_name(alias))
+            if match:
+                break
+
+        if not match:
+            compact_field = normalize_name(field).replace("_", "")
+            for normalized, header in normalized_headers.items():
+                if normalized.replace("_", "") == compact_field:
+                    match = header
+                    break
+
+        mapping[field] = {
+            "csv_column": match,
+            "confidence": 0.95 if match else 0.0,
+            "source": "heuristic" if match else "unmapped",
+        }
+
+    return {"mapping": mapping, "status_map": {}, "unmapped_columns": []}
+
+
+def merge_mapping_proposals(base: dict, override: dict, fields: list[str]) -> dict:
+    """Merge LLM guesses into a heuristic proposal for unresolved fields."""
+    merged = {
+        "mapping": dict(base.get("mapping", {})),
+        "status_map": override.get("status_map") or base.get("status_map", {}),
+        "unmapped_columns": override.get("unmapped_columns", []),
+    }
+    override_mapping = override.get("mapping", {})
+    for field in fields:
+        if field in override_mapping:
+            merged["mapping"][field] = override_mapping[field]
+    return merged
+
+
 def propose_mapping_with_llm(
     headers: list[str],
     sample_rows: list[dict],
-    config: dict
+    config: dict,
+    fields_to_map: list[str] | None = None,
+    existing_mapping: dict | None = None,
 ) -> dict:
     """
     Ask LLM to propose column mapping from customer CSV to Corvus schema.
     Returns mapping with confidence scores.
     """
     agent_config = config.get("agents", {})
+    api_key = agent_config.get("api_key")
+    if not api_key:
+        raise EnvironmentError(
+            "Missing LLM API key for unresolved CSV mapping fields. "
+            "Set NIM_API_KEY or provide the mapping manually."
+        )
+
     client = OpenAI(
-        api_key=agent_config["api_key"],
+        api_key=api_key,
         base_url=agent_config.get("base_url")
     )
     model = agent_config.get("model", "moonshotai/kimi-k2.5")
+    fields_to_map = fields_to_map or list(CORVUS_SCHEMA)
+    schema = {field: CORVUS_SCHEMA[field] for field in fields_to_map}
 
     schema_description = "\n".join(
-        f"{field}: {desc}" for field, desc in CORVUS_SCHEMA.items()
+        f"{field}: {desc}" for field, desc in schema.items()
     )
     sample_text = json.dumps(sample_rows, indent=2)
+    existing_text = json.dumps(existing_mapping or {}, indent=2)
+    mapping_template = ",\n".join(
+        f'    "{field}": {{"csv_column": null, "confidence": 0.0}}'
+        for field in fields_to_map
+    )
 
     prompt = f"""
 You are a data mapping assistant.
@@ -135,8 +252,11 @@ Do NOT output reasoning.
 Do NOT output markdown.
 Do NOT think step by step.
 
-CORVUS SCHEMA:
+FIELDS TO MAP:
 {schema_description}
+
+ALREADY MAPPED FIELDS:
+{existing_text}
 
 CSV HEADERS:
 {headers}
@@ -147,17 +267,7 @@ SAMPLE ROWS:
 Return JSON in this format:
 {{
   "mapping": {{
-    "build_id": {{"csv_column": "...", "confidence": 0.0}},
-    "station_id": {{"csv_column": "...", "confidence": 0.0}},
-    "operator_id": {{"csv_column": "...", "confidence": 0.0}},
-    "start_time": {{"csv_column": "...", "confidence": 0.0}},
-    "planned_end": {{"csv_column": "...", "confidence": 0.0}},
-    "needed_by_date": {{"csv_column": "...", "confidence": 0.0}},
-    "target_quantity": {{"csv_column": "...", "confidence": 0.0}},
-    "completed_quantity": {{"csv_column": "...", "confidence": 0.0}},
-    "labor_hours": {{"csv_column": "...", "confidence": 0.0}},
-    "status": {{"csv_column": "...", "confidence": 0.0}},
-    "notes": {{"csv_column": "...", "confidence": 0.0}}
+{mapping_template}
   }},
   "status_map": {{
     "value": "Normalized Value"
@@ -169,14 +279,25 @@ Return JSON in this format:
     print("\n[CORVUS] Analyzing CSV structure...\n")
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=4096,
-            top_p=0.1,
-            extra_body={"chat_template_kwargs": {"thinking": False}},
-        )
+        request = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "max_tokens": 4096,
+            "top_p": 0.1,
+            "extra_body": {"chat_template_kwargs": {"thinking": False}},
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            response = client.chat.completions.create(**request)
+        except TypeError:
+            request.pop("response_format", None)
+            response = client.chat.completions.create(**request)
+        except Exception as exc:
+            if "response_format" not in str(exc):
+                raise
+            request.pop("response_format", None)
+            response = client.chat.completions.create(**request)
 
         if not response or not response.choices:
             raise ValueError("Empty response from LLM")
@@ -225,7 +346,50 @@ Return JSON in this format:
         raise
 
 
-def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dict, dict]:
+def validate_mapping(
+    column_map: dict,
+    status_map: dict,
+    headers: list[str],
+    require_required: bool = True,
+) -> tuple[dict, dict, list[str]]:
+    """Normalize mapped headers and report invalid or missing required fields."""
+    clean_map = {}
+    issues = []
+
+    for field, csv_col in column_map.items():
+        if field not in CORVUS_SCHEMA:
+            issues.append(f"Unknown Corvus field ignored: {field}")
+            continue
+        actual_header = resolve_header(csv_col, headers)
+        if csv_col and not actual_header:
+            issues.append(f"'{field}' maps to missing CSV column '{csv_col}'")
+            continue
+        if actual_header:
+            clean_map[field] = actual_header
+
+    if require_required:
+        for field in REQUIRED_FIELDS:
+            if field not in clean_map:
+                issues.append(f"Required field is not mapped: {field}")
+
+    clean_status_map = {}
+    for raw_status, normalized_status in (status_map or {}).items():
+        if normalized_status in VALID_STATUSES:
+            clean_status_map[raw_status] = normalized_status
+        else:
+            issues.append(
+                f"Status '{raw_status}' maps to unsupported value "
+                f"'{normalized_status}'"
+            )
+
+    return clean_map, clean_status_map, issues
+
+
+def display_and_confirm_mapping(
+    proposal: dict,
+    headers: list[str],
+    yes: bool = False,
+) -> tuple[dict, dict]:
     """
     Display proposed mapping.
     Auto-accept high confidence fields.
@@ -244,12 +408,16 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
     print("PROPOSED COLUMN MAPPING")
     print("=" * 60)
 
-    for field, info in mapping.items():
+    for field in CORVUS_SCHEMA:
+        info = mapping.get(field, {})
         csv_col = info.get("csv_column")
+        csv_col = resolve_header(csv_col, headers) or csv_col
         confidence = info.get("confidence", 0.0)
         reasoning = info.get("reasoning", "")
 
-        if confidence >= CONFIDENCE_THRESHOLD:
+        if csv_col and not resolve_header(csv_col, headers):
+            needs_review.append((field, csv_col, 0.0, "Column was not found in CSV headers."))
+        elif confidence >= CONFIDENCE_THRESHOLD:
             auto_accepted.append((field, csv_col, confidence, reasoning))
         else:
             needs_review.append((field, csv_col, confidence, reasoning))
@@ -273,6 +441,12 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
             if not csv_col:
                 continue
 
+            if yes:
+                actual_header = resolve_header(csv_col, headers)
+                if actual_header:
+                    confirmed_column_map[field] = actual_header
+                continue
+
             # low confidence match exists — prompt to confirm
             print(f"  Field: {field}")
             print(f"  Description: {CORVUS_SCHEMA.get(field, '')}")
@@ -288,10 +462,11 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
                 if not user_input:
                     confirmed_column_map[field] = csv_col
                     break
-                elif user_input in headers:
-                    confirmed_column_map[field] = user_input
-                    break
                 else:
+                    actual_header = resolve_header(user_input, headers)
+                    if actual_header:
+                        confirmed_column_map[field] = actual_header
+                        break
                     print(f"  ⚠️  '{user_input}' not in CSV. Available: {headers}")
 
             print()
@@ -300,18 +475,32 @@ def display_and_confirm_mapping(proposal: dict, headers: list[str]) -> tuple[dic
         print("\n📋  STATUS NORMALIZATION:\n")
         for their_val, our_val in status_map.items():
             print(f"  '{their_val}' → '{our_val}'")
-        confirm = input(
-            "\n  Accept status mapping? (Enter=yes, n=skip): "
-        ).strip().lower()
-        if confirm == "n":
-            status_map = {}
+        if not yes:
+            confirm = input(
+                "\n  Accept status mapping? (Enter=yes, n=skip): "
+            ).strip().lower()
+            if confirm == "n":
+                status_map = {}
 
     if unmapped:
         print(f"\n❓  UNMAPPED COLUMNS (not used by Corvus): {unmapped}")
 
     print("\n" + "=" * 60)
 
-    return confirmed_column_map, status_map
+    clean_map, clean_status_map, issues = validate_mapping(
+        confirmed_column_map,
+        status_map,
+        headers,
+        require_required=True,
+    )
+    if issues:
+        print("\n[CORVUS] Mapping validation issues:")
+        for issue in issues:
+            print(f"  - {issue}")
+        if any(issue.startswith("Required field") for issue in issues):
+            raise ValueError("Cannot save CSV mapping without required fields.")
+
+    return clean_map, clean_status_map
 
 
 def save_mapping_to_onboarding(
@@ -342,7 +531,6 @@ def save_mapping_to_onboarding(
 
 def check_existing_mapping(
     onboarding: dict,
-    file_path: str,
     current_fingerprint: str,
     current_headers: list[str]
 ) -> bool:
@@ -373,7 +561,57 @@ def check_existing_mapping(
     return True
 
 
-def run(csv_path: str, onboarding_path: str, force: bool = False):
+def build_mapping_proposal(
+    headers: list[str],
+    sample_rows: list[dict],
+    config: dict,
+) -> dict:
+    """Build a mapping proposal using heuristics first, then LLM for gaps."""
+    proposal = propose_mapping_with_heuristics(headers)
+    unresolved = [
+        field for field, info in proposal["mapping"].items()
+        if not info.get("csv_column")
+    ]
+
+    if not unresolved:
+        print("[CORVUS] Heuristic mapper resolved all schema fields.\n")
+        return proposal
+
+    print(
+        "[CORVUS] Heuristic mapper resolved "
+        f"{len(CORVUS_SCHEMA) - len(unresolved)} of {len(CORVUS_SCHEMA)} fields."
+    )
+
+    try:
+        llm_proposal = propose_mapping_with_llm(
+            headers,
+            sample_rows,
+            config,
+            fields_to_map=unresolved,
+            existing_mapping={
+                field: info["csv_column"]
+                for field, info in proposal["mapping"].items()
+                if info.get("csv_column")
+            },
+        )
+    except EnvironmentError:
+        required_missing = [f for f in REQUIRED_FIELDS if f in unresolved]
+        if required_missing:
+            raise
+        print("[CORVUS] No LLM API key found; using heuristic mapping only.\n")
+        return proposal
+
+    return merge_mapping_proposals(proposal, llm_proposal, unresolved)
+
+
+def run(
+    csv_path: str,
+    onboarding_path: str,
+    force: bool = False,
+    yes: bool = False,
+    dry_run: bool = False,
+    output_path: str | None = None,
+):
     """Main entry point."""
     if not os.path.exists(csv_path):
         print(f"[CORVUS] File not found: {csv_path}")
@@ -389,24 +627,48 @@ def run(csv_path: str, onboarding_path: str, force: bool = False):
 
     fingerprint = get_csv_fingerprint(csv_path)
 
-    if not force and check_existing_mapping(onboarding, csv_path, fingerprint, headers):
+    if not force and check_existing_mapping(onboarding, fingerprint, headers):
         print("[CORVUS] Mapping is current. Use --force to remap.")
         return
 
     if force:
         print("[CORVUS] Force flag set — remapping regardless of cache.\n")
 
-    proposal = propose_mapping_with_llm(headers, sample_rows, config)
-    column_map, status_map = display_and_confirm_mapping(proposal, headers)
-
-    save_mapping_to_onboarding(
-        onboarding_path=onboarding_path,
-        onboarding=onboarding,
-        column_map=column_map,
-        status_map=status_map,
-        file_path=csv_path,
-        fingerprint=fingerprint
+    proposal = build_mapping_proposal(headers, sample_rows, config)
+    column_map, status_map = display_and_confirm_mapping(
+        proposal,
+        headers,
+        yes=yes,
     )
+
+    preview = {
+        "csv_connector": {
+            "file_path": csv_path,
+            "mapping_fingerprint": fingerprint,
+            "column_map": column_map,
+            "status_map": status_map if status_map else {},
+        }
+    }
+
+    if dry_run:
+        print("\n[CORVUS] Dry run: mapping preview follows.\n")
+        print(yaml.dump(preview, default_flow_style=False, sort_keys=False))
+        return
+
+    if output_path:
+        with open(output_path, "w") as f:
+            yaml.dump(preview, f, default_flow_style=False, sort_keys=False)
+        print(f"\n[CORVUS] Mapping preview saved → {output_path}")
+        return
+    else:
+        save_mapping_to_onboarding(
+            onboarding_path=onboarding_path,
+            onboarding=onboarding,
+            column_map=column_map,
+            status_map=status_map,
+            file_path=csv_path,
+            fingerprint=fingerprint
+        )
 
     print("[CORVUS] Ready. Run: python agents/debrief/src/main.py --csv <path>")
 
@@ -425,5 +687,27 @@ if __name__ == "__main__":
         action="store_true",
         help="Force remapping even if a valid mapping exists"
     )
+    parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Accept all valid proposed mappings without prompts",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the proposed mapping without writing onboarding.yaml",
+    )
+    parser.add_argument(
+        "--output",
+        help="Write mapping preview YAML to this path instead of onboarding.yaml",
+    )
     args = parser.parse_args()
-    run(args.csv_path, args.onboarding, force=args.force)
+    run(
+        args.csv_path,
+        args.onboarding,
+        force=args.force,
+        yes=args.yes,
+        dry_run=args.dry_run,
+        output_path=args.output,
+    )

@@ -14,7 +14,12 @@ sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
 from utils.config import load_config, load_onboarding
-from tools.map_csv import run as run_mapper
+from tools.map_csv import (
+    check_existing_mapping,
+    get_csv_fingerprint,
+    read_csv_sample,
+    run as run_mapper,
+)
 from reporting.debrief_template import DebriefGenerator
 from agents.debrief_agent import run_debrief_agent
 from agents.tools import get_build_metrics
@@ -162,14 +167,14 @@ def ensure_csv_mapping(
     If not, run the mapper automatically before proceeding.
     Returns updated onboarding dict.
     """
-    csv_config = onboarding.get("csv_connector", {})
-    existing_map = csv_config.get("column_map", {})
+    headers, _ = read_csv_sample(csv_path)
+    fingerprint = get_csv_fingerprint(csv_path)
 
-    if existing_map:
-        print("[CORVUS] Column mapping found — skipping mapper.\n")
+    if check_existing_mapping(onboarding, fingerprint, headers):
+        print("[CORVUS] Column mapping found and current — skipping mapper.\n")
         return onboarding
 
-    print("[CORVUS] No column mapping found for this CSV.")
+    print("[CORVUS] No current column mapping found for this CSV.")
     print("[CORVUS] Running auto-mapper now...\n")
     run_mapper(csv_path, onboarding_path)
     return load_onboarding(onboarding_path)

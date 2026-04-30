@@ -4,16 +4,23 @@ Supports station tracking, operator assignment, production metrics,
 and status management for Manufacturing Execution System integration.
 """
 import sqlite3
+import re
 from connectors.base import BaseMESConnector
 
 
 class SQLiteMESConnector(BaseMESConnector):
     """Connector for SQLite database with MES tracking."""
 
+    def _table_name(self) -> str:
+        table_name = self.config.get("table_name", "builds")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table_name):
+            raise ValueError(f"Invalid SQLite table name: {table_name}")
+        return table_name
+
     def fetch_builds(self) -> list[dict]:
         """Fetch builds from SQLite database with full MES schema."""
         db_path = self.config.get("db_path", "")
-        table_name = self.config.get("table_name", "builds")
+        table_name = self._table_name()
         
         try:
             conn = sqlite3.connect(db_path)
@@ -25,7 +32,7 @@ class SQLiteMESConnector(BaseMESConnector):
                        planned_end, needed_by_date, target_quantity, 
                        completed_quantity, labor_hours, fulfillment_pct, 
                        status, notes
-                FROM {table_name}
+                FROM "{table_name}"
             """)
             
             rows = cursor.fetchall()
@@ -55,7 +62,7 @@ class SQLiteMESConnector(BaseMESConnector):
     def get_bottleneck_report(self) -> list[dict]:
         """List all Blocked work orders by station."""
         db_path = self.config.get("db_path", "")
-        table_name = self.config.get("table_name", "builds")
+        table_name = self._table_name()
         
         try:
             conn = sqlite3.connect(db_path)
@@ -63,7 +70,7 @@ class SQLiteMESConnector(BaseMESConnector):
             
             cursor.execute(f"""
                 SELECT build_id, station_id, operator_id, status, notes
-                FROM {table_name}
+                FROM "{table_name}"
                 WHERE status = 'Blocked'
                 ORDER BY station_id
             """)
@@ -88,7 +95,7 @@ class SQLiteMESConnector(BaseMESConnector):
     def get_at_risk_report(self) -> list[dict]:
         """List work orders where planned_end > needed_by_date."""
         db_path = self.config.get("db_path", "")
-        table_name = self.config.get("table_name", "builds")
+        table_name = self._table_name()
         
         try:
             conn = sqlite3.connect(db_path)
@@ -97,7 +104,7 @@ class SQLiteMESConnector(BaseMESConnector):
             cursor.execute(f"""
                 SELECT build_id, station_id, planned_end, needed_by_date,
                        target_quantity, completed_quantity, status
-                FROM {table_name}
+                FROM "{table_name}"
                 WHERE planned_end > needed_by_date
                   AND status NOT IN ('Completed')
                 ORDER BY needed_by_date
@@ -125,7 +132,7 @@ class SQLiteMESConnector(BaseMESConnector):
     def get_efficiency_by_station(self) -> list[dict]:
         """Calculate fulfillment percentage per station."""
         db_path = self.config.get("db_path", "")
-        table_name = self.config.get("table_name", "builds")
+        table_name = self._table_name()
         
         try:
             conn = sqlite3.connect(db_path)
@@ -139,7 +146,7 @@ class SQLiteMESConnector(BaseMESConnector):
                        ROUND(SUM(completed_quantity) * 100.0 / 
                              NULLIF(SUM(target_quantity), 0), 2) as avg_fulfillment_pct,
                        ROUND(AVG(labor_hours), 2) as avg_labor_hours
-                FROM {table_name}
+                FROM "{table_name}"
                 GROUP BY station_id
                 ORDER BY avg_fulfillment_pct DESC
             """)
@@ -168,14 +175,14 @@ class SQLiteMESConnector(BaseMESConnector):
         Returns number of rows updated.
         """
         db_path = self.config.get("db_path", "")
-        table_name = self.config.get("table_name", "builds")
+        table_name = self._table_name()
         
         try:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             
             cursor.execute(f"""
-                UPDATE {table_name}
+                UPDATE "{table_name}"
                 SET status = 'Completed'
                 WHERE completed_quantity >= target_quantity
                   AND status != 'Completed'

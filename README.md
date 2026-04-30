@@ -184,12 +184,16 @@ python agents/debrief/src/tools/map_csv.py shared/data/your_export.csv
 
 # Force remap if your CSV structure changed
 python agents/debrief/src/tools/map_csv.py shared/data/your_export.csv --force
+
+# Preview a non-interactive mapping without writing onboarding.yaml
+python agents/debrief/src/tools/map_csv.py shared/data/your_export.csv --yes --dry-run
 ```
 
 **What the mapper does:**
+- Uses deterministic header heuristics before spending LLM tokens
 - Auto-accepts high confidence matches (>=85%)
 - Prompts you only on uncertain fields that have a candidate match
-- Skips fields silently when no CSV column exists for them
+- Validates required fields and ignores proposed columns that are not in the CSV
 - Saves mapping to onboarding.yaml
 - Caches by header fingerprint — never remaps unless schema changes
 - Unknown columns are preserved as extended fields — the agent sees everything
@@ -349,6 +353,9 @@ python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv
 
 # Force remap
 python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv --force
+
+# Preview without prompts or writes
+python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv --yes --dry-run
 
 # Map with specific onboarding
 python agents/debrief/src/tools/map_csv.py shared/data/your_file.csv --onboarding agents/debrief/config/acs_onboarding.yaml

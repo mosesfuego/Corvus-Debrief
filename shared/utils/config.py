@@ -31,10 +31,7 @@ def load_config(path: str = "agents/debrief/config/config.yaml") -> dict:
 
     def replace_env(match):
         var_name = match.group(1)
-        value = os.environ.get(var_name)
-        if value is None:
-            raise EnvironmentError(f"Missing environment variable: {var_name}")
-        return value
+        return os.environ.get(var_name, "")
 
     resolved = re.sub(r'\$\{(\w+)\}', replace_env, raw)
     data = yaml.safe_load(resolved)

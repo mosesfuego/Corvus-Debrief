@@ -188,10 +188,8 @@ class CSVMESConnector(BaseMESConnector):
     def get_at_risk_report(self) -> list[dict]:
         at_risk = []
         for build in self.fetch_builds():
-            planned = build.get("planned_end")
-            needed = build.get("needed_by_date")
             status = build.get("status")
-            if planned and needed and planned > needed and status != "Completed":
+            if status != "Completed" and self._is_late(build):
                 at_risk.append(build)
         return at_risk
 
