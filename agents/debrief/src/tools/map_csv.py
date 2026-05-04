@@ -18,7 +18,6 @@ import json
 import hashlib
 import argparse
 import os
-import re
 import traceback
 
 _THIS_FILE = os.path.abspath(__file__)
@@ -34,79 +33,23 @@ for _p in (_SHARED_DIR, _PROJECT_ROOT):
 
 import yaml
 from openai import OpenAI
+from intake.mapping_registry import (
+    REQUIRED_WORK_ORDER_FIELDS,
+    WORK_ORDER_SCHEMA,
+    normalize_name,
+    resolve_header,
+)
+from intake.schema_mapper import (
+    propose_mapping_with_heuristics,
+    validate_mapping as validate_schema_mapping,
+)
+from intake.source_classifier import classify_rows
 from utils.config import load_config, load_onboarding
 
 
-CORVUS_SCHEMA = {
-    "build_id":            "Unique identifier for the work order or job",
-    "station_id":          "Machine, line, or workstation where the job runs",
-    "operator_id":         "Technician or operator assigned to the job",
-    "start_time":          "When the job started (ISO datetime or similar)",
-    "planned_end":         "When the job is scheduled to finish",
-    "needed_by_date":      "Customer or production deadline for this job",
-    "target_quantity":     "How many units are planned for this job",
-    "completed_quantity":  "How many units have been completed so far",
-    "labor_hours":         "Hours of labor logged against this job",
-    "status":              "Current state of the job (e.g. In Progress, Blocked, Completed)",
-    "notes":               "Any comments, flags, or free text about this job",
-}
-
-REQUIRED_FIELDS = ["build_id", "status"]
+CORVUS_SCHEMA = WORK_ORDER_SCHEMA
+REQUIRED_FIELDS = REQUIRED_WORK_ORDER_FIELDS
 CONFIDENCE_THRESHOLD = 0.85
-
-COMMON_ALIASES = {
-    "build_id": [
-        "build_id", "build", "job", "job_id", "job_number", "work_order",
-        "workorder", "work_order_id", "wo", "wo_id", "order", "order_id",
-    ],
-    "station_id": [
-        "station_id", "station", "work_center", "workcenter", "work_cell",
-        "cell", "machine", "machine_id", "line", "line_id", "operation",
-    ],
-    "operator_id": [
-        "operator_id", "operator", "technician", "tech", "employee",
-        "employee_id", "personnel", "assigned_operator",
-    ],
-    "start_time": [
-        "start_time", "started_at", "start", "timestamp", "time",
-        "created_at", "actual_start",
-    ],
-    "planned_end": [
-        "planned_end", "scheduled_end", "planned_finish", "finish_time",
-        "end_time", "expected_completion", "planned_complete",
-    ],
-    "needed_by_date": [
-        "needed_by_date", "needed_by", "due_date", "deadline",
-        "customer_due", "required_by", "ship_date", "promise_date",
-    ],
-    "target_quantity": [
-        "target_quantity", "target_qty", "qty_required", "quantity",
-        "order_qty", "planned_qty", "required_qty", "target",
-    ],
-    "completed_quantity": [
-        "completed_quantity", "completed_qty", "qty_complete", "qty_done",
-        "done_qty", "good_qty", "produced_qty", "completed",
-    ],
-    "labor_hours": [
-        "labor_hours", "labour_hours", "hours", "work_hours", "logged_hours",
-        "man_hours", "runtime_hours",
-    ],
-    "status": [
-        "status", "state", "job_status", "order_status", "current_status",
-        "work_order_status",
-    ],
-    "notes": [
-        "notes", "comments", "comment", "description", "remarks",
-        "message", "issue", "reason",
-    ],
-}
-
-VALID_STATUSES = {"Pending", "In Progress", "Completed", "Blocked", "Paused"}
-
-
-def normalize_name(value: str) -> str:
-    """Normalize a CSV/header name for deterministic matching."""
-    return re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
 
 
 def get_csv_fingerprint(file_path: str) -> str:
@@ -153,44 +96,6 @@ def read_csv_sample(file_path: str) -> tuple[list[str], list[dict]]:
             if i >= 2:
                 break
     return headers, rows
-
-
-def resolve_header(csv_col: str | None, headers: list[str]) -> str | None:
-    """Return the actual CSV header for a proposed column, or None."""
-    if not csv_col:
-        return None
-    if csv_col in headers:
-        return csv_col
-    normalized_headers = {normalize_name(h): h for h in headers}
-    return normalized_headers.get(normalize_name(csv_col))
-
-
-def propose_mapping_with_heuristics(headers: list[str]) -> dict:
-    """Map obvious fields before spending LLM tokens."""
-    normalized_headers = {normalize_name(h): h for h in headers}
-    mapping = {}
-
-    for field, aliases in COMMON_ALIASES.items():
-        match = None
-        for alias in aliases:
-            match = normalized_headers.get(normalize_name(alias))
-            if match:
-                break
-
-        if not match:
-            compact_field = normalize_name(field).replace("_", "")
-            for normalized, header in normalized_headers.items():
-                if normalized.replace("_", "") == compact_field:
-                    match = header
-                    break
-
-        mapping[field] = {
-            "csv_column": match,
-            "confidence": 0.95 if match else 0.0,
-            "source": "heuristic" if match else "unmapped",
-        }
-
-    return {"mapping": mapping, "status_map": {}, "unmapped_columns": []}
 
 
 def merge_mapping_proposals(base: dict, override: dict, fields: list[str]) -> dict:
@@ -353,36 +258,14 @@ def validate_mapping(
     require_required: bool = True,
 ) -> tuple[dict, dict, list[str]]:
     """Normalize mapped headers and report invalid or missing required fields."""
-    clean_map = {}
-    issues = []
-
-    for field, csv_col in column_map.items():
-        if field not in CORVUS_SCHEMA:
-            issues.append(f"Unknown Corvus field ignored: {field}")
-            continue
-        actual_header = resolve_header(csv_col, headers)
-        if csv_col and not actual_header:
-            issues.append(f"'{field}' maps to missing CSV column '{csv_col}'")
-            continue
-        if actual_header:
-            clean_map[field] = actual_header
-
-    if require_required:
-        for field in REQUIRED_FIELDS:
-            if field not in clean_map:
-                issues.append(f"Required field is not mapped: {field}")
-
-    clean_status_map = {}
-    for raw_status, normalized_status in (status_map or {}).items():
-        if normalized_status in VALID_STATUSES:
-            clean_status_map[raw_status] = normalized_status
-        else:
-            issues.append(
-                f"Status '{raw_status}' maps to unsupported value "
-                f"'{normalized_status}'"
-            )
-
-    return clean_map, clean_status_map, issues
+    required = REQUIRED_FIELDS if require_required else []
+    return validate_schema_mapping(
+        column_map,
+        status_map,
+        headers,
+        required_fields=required,
+        schema=CORVUS_SCHEMA,
+    )
 
 
 def display_and_confirm_mapping(
@@ -567,7 +450,7 @@ def build_mapping_proposal(
     config: dict,
 ) -> dict:
     """Build a mapping proposal using heuristics first, then LLM for gaps."""
-    proposal = propose_mapping_with_heuristics(headers)
+    proposal = propose_mapping_with_heuristics(headers, source_type="work_order")
     unresolved = [
         field for field, info in proposal["mapping"].items()
         if not info.get("csv_column")
@@ -624,6 +507,12 @@ def run(
     print(f"\n[CORVUS] Reading: {csv_path}")
     headers, sample_rows = read_csv_sample(csv_path)
     print(f"[CORVUS] Found {len(headers)} columns: {headers}")
+    classification = classify_rows(headers, sample_rows)
+    print(
+        "[CORVUS] Source classification: "
+        f"{classification['source_type']} "
+        f"({int(classification['confidence'] * 100)}% confidence)"
+    )
 
     fingerprint = get_csv_fingerprint(csv_path)
 

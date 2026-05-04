@@ -13,14 +13,21 @@ signals, lets an LLM reason over those facts, then writes a meeting-ready report
    - CSV connector for mapped customer exports
    - SQLite connector for local MES-style databases
    - API connector placeholder for future HTTP-backed MES integrations
-4. `analytics/build_metrics.py` enriches builds with deterministic metrics and
+4. `intake/` classifies sources, stores mapping metadata, and shares schema
+   mapping helpers across CSV/API/database intake.
+5. `canonical/` defines normalized manufacturing records such as work orders,
+   operations, quality issues, material status, and labor assignments.
+6. `orchestration/debrief_orchestrator.py` runs domain agents over connector
+   data and builds a compact debrief context.
+7. `domain_agents/work_order_agent.py` enriches builds with deterministic
    signals such as blocked, delayed, stalled, at-risk, unassigned, and needs
-   decision.
-5. `agents/debrief_agent.py` exposes those facts as LLM tools and asks the
+   decision. Lightweight quality/material agents extract early cross-domain
+   signals from notes and extended fields.
+8. `agents/debrief_agent.py` exposes those facts as LLM tools and asks the
    model for a debrief.
-6. `reporting/debrief_template.py` wraps the debrief in a standard report and
+9. `reporting/debrief_template.py` wraps the debrief in a standard report and
    extracts routed action items for each configured team.
-7. `memory/memory.py` stores a rolling run history in `shared/memory/log.json`.
+10. `memory/memory.py` stores a rolling run history in `shared/memory/log.json`.
 
 ## Important Boundaries
 
@@ -45,6 +52,42 @@ CSV inputs may include arbitrary extra columns. Those fields are preserved under
 `build["extended"]` so the agent can reason over customer-specific context
 without requiring schema changes.
 
+## Package Shape
+
+```text
+connectors/
+  csv_connector.py
+  api_connector.py
+  sqlite_connector.py
+
+intake/
+  source_classifier.py
+  mapping_registry.py
+  schema_mapper.py
+
+canonical/
+  work_order.py
+  operation.py
+  quality_issue.py
+  material_status.py
+  labor_assignment.py
+
+domain_agents/
+  work_order_agent.py
+  quality_lite_agent.py
+  materials_lite_agent.py
+
+orchestration/
+  debrief_orchestrator.py
+
+reporting/
+  debrief_template.py
+```
+
+The architectural rule is: connectors fetch raw data, intake maps/classifies
+that data, canonical models define stable records, domain agents produce compact
+findings, and the debrief orchestrator coordinates the flow.
+
 ## Configuration
 
 `agents/debrief/config/config.yaml` controls runtime behavior: data source,
@@ -62,6 +105,16 @@ LLM call is required.
 
 Add a new MES source by implementing `BaseMESConnector` and registering it in
 `connectors/factory.py`.
+
+Add a new intake type by extending `intake/mapping_registry.py`, then teaching
+`source_classifier.py` and `schema_mapper.py` how to recognize/map it.
+
+Add a deeper business domain by creating a domain agent that returns:
+
+- `domain`
+- `summary`
+- `findings`
+- compact evidence references
 
 Add a new demo by creating a scenario connector in
 `connectors/scenarios/` and adding it to `SCENARIOS`.

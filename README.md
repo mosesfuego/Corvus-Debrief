@@ -283,15 +283,22 @@ RECOMMENDED ACTIONS
 ## Architecture
 
 ```
-Any CSV / MES / SQLite
+CSV / API / SQLite / Scenario
         |
-   CSV Mapper (LLM-assisted, fingerprint cached)
+   Connector
+   (fetches raw customer/system data)
         |
-   CSVMESConnector
-   (known fields -> schema, unknown -> extended{})
+   Intake Layer
+   (classifies source, maps schema, caches fingerprints)
         |
-   Analytics Engine
-   (enriches builds with signals)
+   Canonical Records
+   (work orders, operations, quality, materials, labor)
+        |
+   Domain Agents
+   (work order, quality-lite, materials-lite)
+        |
+   Debrief Orchestrator
+   (builds compact context + findings)
         |
    Debrief Agent
    (think -> tool -> observe -> think loop)
@@ -309,6 +316,14 @@ Any CSV / MES / SQLite
 | `agents/debrief/src/main.py` | Entry point, CLI |
 | `agents/debrief/src/agents/debrief_agent.py` | Agent reasoning loop |
 | `agents/debrief/src/agents/tools.py` | Tools the agent can call |
+| `agents/debrief/src/intake/source_classifier.py` | Classifies manufacturing exports |
+| `agents/debrief/src/intake/mapping_registry.py` | Canonical field aliases and source metadata |
+| `agents/debrief/src/intake/schema_mapper.py` | Shared deterministic mapping helpers |
+| `agents/debrief/src/canonical/work_order.py` | Canonical work-order record |
+| `agents/debrief/src/domain_agents/work_order_agent.py` | Work-order signal and finding agent |
+| `agents/debrief/src/domain_agents/quality_lite_agent.py` | Early quality signal extraction |
+| `agents/debrief/src/domain_agents/materials_lite_agent.py` | Early material/kitting signal extraction |
+| `agents/debrief/src/orchestration/debrief_orchestrator.py` | Coordinates connector + domain agents |
 | `agents/debrief/src/tools/map_csv.py` | LLM-assisted CSV column mapper |
 | `agents/debrief/src/connectors/csv_connector.py` | Flexible CSV connector |
 | `agents/debrief/src/connectors/factory.py` | Connector selector with caching |
@@ -429,8 +444,12 @@ corvus-mfg/
 │           ├── main.py
 │           ├── agents/
 │           ├── analytics/
+│           ├── canonical/
 │           ├── connectors/
+│           ├── domain_agents/
+│           ├── intake/
 │           ├── memory/
+│           ├── orchestration/
 │           ├── reporting/
 │           └── tools/
 ├── shared/
