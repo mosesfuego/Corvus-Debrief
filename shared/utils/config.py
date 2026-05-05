@@ -40,6 +40,11 @@ def load_config(path: str = "agents/debrief/config/config.yaml") -> dict:
     return data
 
 
+def load_dotenv() -> None:
+    """Load project/local .env files into the process environment."""
+    _load_dotenv()
+
+
 def load_onboarding(path: str = "agents/debrief/config/onboarding.yaml") -> dict:
     path = _resolve_repo_path(path)
     if not os.path.exists(path):

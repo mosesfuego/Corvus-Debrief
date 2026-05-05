@@ -13,7 +13,7 @@ sys.path.insert(0, _SRC_DIR)
 sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
-from utils.config import load_config, load_onboarding
+from utils.config import load_config, load_dotenv, load_onboarding
 from tools.map_csv import (
     check_existing_mapping,
     get_csv_fingerprint,
@@ -65,6 +65,7 @@ def parse_args():
 
 def build_demo_config() -> dict:
     """Return a self-contained config for the built-in demo path."""
+    load_dotenv()
     return {
         "_demo": True,
         "mes_type": "scenario",
@@ -84,8 +85,18 @@ def build_demo_config() -> dict:
         },
         "llm_providers": [
             {
-                "name": "moonshot_kimi",
+                "name": "google_gemini",
                 "rank": 1,
+                "model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+                "api_key": os.environ.get("GEMINI_API_KEY", ""),
+                "base_url": os.environ.get(
+                    "GEMINI_BASE_URL",
+                    "https://generativelanguage.googleapis.com/v1beta/openai/",
+                ),
+            },
+            {
+                "name": "moonshot_kimi",
+                "rank": 2,
                 "model": os.environ.get("MOONSHOT_MODEL", "kimi-k2.6"),
                 "api_key": os.environ.get("MOONSHOT_API_KEY", ""),
                 "base_url": os.environ.get(
@@ -95,7 +106,7 @@ def build_demo_config() -> dict:
             },
             {
                 "name": "nvidia_nim",
-                "rank": 2,
+                "rank": 3,
                 "model": os.environ.get("NIM_MODEL", "moonshotai/kimi-k2.6"),
                 "api_key": os.environ.get("NIM_API_KEY", ""),
                 "base_url": os.environ.get(

@@ -69,6 +69,7 @@ pip install -r requirements.txt
 
 Create a `.env` file at project root:
 ```
+GEMINI_API_KEY=your_google_gemini_key_here
 MOONSHOT_API_KEY=your_moonshot_or_kimi_key_here
 NIM_API_KEY=your_nvidia_nim_key_here
 ```
@@ -86,13 +87,18 @@ agents:
   base_url: "https://integrate.api.nvidia.com/v1"
 
 llm_providers:
-  - name: "moonshot_kimi"
+  - name: "google_gemini"
     rank: 1
+    model: "gemini-2.5-flash"
+    api_key: ${GEMINI_API_KEY}
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+  - name: "moonshot_kimi"
+    rank: 2
     model: "kimi-k2.6"
     api_key: ${MOONSHOT_API_KEY}
     base_url: "https://api.moonshot.ai/v1"
   - name: "nvidia_nim"
-    rank: 2
+    rank: 3
     model: "moonshotai/kimi-k2.6"
     api_key: ${NIM_API_KEY}
     base_url: "https://integrate.api.nvidia.com/v1"
