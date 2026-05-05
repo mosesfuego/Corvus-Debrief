@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corvus Debrief Architecture Flow</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #162033;
+      --muted: #657084;
+      --line: #9aa8bf;
+      --line-active: #0f6f95;
+      --grid: rgba(36, 48, 72, 0.07);
+      --shadow: 0 18px 40px rgba(22, 32, 51, 0.12);
+      --radius: 10px;
+      --source: #dff5ef;
+      --source-border: #249a78;
+      --connector: #e3f0ff;
+      --connector-border: #3f83cc;
+      --intake: #fff2cc;
+      --intake-border: #c49300;
+      --canonical: #f1e8ff;
+      --canonical-border: #8061c5;
+      --domain: #ffe6e0;
+      --domain-border: #c95d49;
+      --orchestration: #e8ecff;
+      --orchestration-border: #5f6fd2;
+      --output: #e8f7df;
+      --output-border: #5e9f42;
+      --future: #f3f5f9;
+      --future-border: #a7b0c2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 72px 1fr;
+      height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 18px 12px 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid #dfe5ef;
+      backdrop-filter: blur(12px);
+      z-index: 5;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button,
+    input {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid #cfd7e5;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+    }
+
+    button {
+      min-width: 36px;
+      padding: 0 11px;
+      cursor: pointer;
+    }
+
+    button:hover,
+    button.active {
+      border-color: #5c77ad;
+      background: #f0f5ff;
+    }
+
+    input {
+      width: 230px;
+      padding: 0 12px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      min-height: 0;
+    }
+
+    .viewport {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 28px 28px;
+      cursor: grab;
+    }
+
+    .viewport.dragging {
+      cursor: grabbing;
+    }
+
+    .canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1900px;
+      height: 1120px;
+      transform-origin: 0 0;
+    }
+
+    svg.edges {
+      position: absolute;
+      inset: 0;
+      width: 1900px;
+      height: 1120px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .lane {
+      position: absolute;
+      top: 38px;
+      width: 238px;
+      height: 1018px;
+      border-radius: 16px;
+      border: 1px solid #d5dce8;
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow: 0 8px 18px rgba(22, 32, 51, 0.05);
+    }
+
+    .lane-title {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .node {
+      position: absolute;
+      width: 196px;
+      min-height: 70px;
+      border-radius: var(--radius);
+      border: 1.5px solid;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(22, 32, 51, 0.08);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+      user-select: none;
+    }
+
+    .node:hover,
+    .node.selected {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      z-index: 4;
+    }
+
+    .node.dim {
+      opacity: 0.2;
+    }
+
+    .node.future {
+      background: var(--future);
+      border-style: dashed;
+    }
+
+    .node-title {
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .node-body {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      border: 1px solid rgba(22, 32, 51, 0.12);
+      background: rgba(255, 255, 255, 0.7);
+      color: #33415d;
+    }
+
+    .source { background: var(--source); border-color: var(--source-border); }
+    .connector { background: var(--connector); border-color: var(--connector-border); }
+    .intake { background: var(--intake); border-color: var(--intake-border); }
+    .canonical { background: var(--canonical); border-color: var(--canonical-border); }
+    .domain { background: var(--domain); border-color: var(--domain-border); }
+    .orchestration { background: var(--orchestration); border-color: var(--orchestration-border); }
+    .output { background: var(--output); border-color: var(--output-border); }
+
+    .lane.source .lane-title { background: var(--source); border-color: var(--source-border); }
+    .lane.connector .lane-title { background: var(--connector); border-color: var(--connector-border); }
+    .lane.intake .lane-title { background: var(--intake); border-color: var(--intake-border); }
+    .lane.canonical .lane-title { background: var(--canonical); border-color: var(--canonical-border); }
+    .lane.domain .lane-title { background: var(--domain); border-color: var(--domain-border); }
+    .lane.orchestration .lane-title { background: var(--orchestration); border-color: var(--orchestration-border); }
+    .lane.output .lane-title { background: var(--output); border-color: var(--output-border); }
+
+    .edge {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 2;
+      opacity: 0.78;
+    }
+
+    .edge.future {
+      stroke-dasharray: 7 6;
+      stroke: var(--future-border);
+      opacity: 0.85;
+    }
+
+    .edge.active {
+      stroke: var(--line-active);
+      stroke-width: 4;
+      opacity: 1;
+    }
+
+    .edge.dim {
+      opacity: 0.09;
+    }
+
+    .edge-label {
+      fill: #46536c;
+      font-size: 11px;
+      font-weight: 700;
+      paint-order: stroke;
+      stroke: #fff;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      opacity: 0.95;
+    }
+
+    aside {
+      border-left: 1px solid #dfe5ef;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .panel-kicker {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .panel-title {
+      margin: 8px 0 8px;
+      font-size: 21px;
+      line-height: 1.15;
+      font-weight: 850;
+    }
+
+    .panel-desc {
+      color: #344157;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    .panel-section {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid #e3e8f1;
+    }
+
+    .panel-section h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+    }
+
+    .panel-section ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #435068;
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .definition-list {
+      display: grid;
+      gap: 9px;
+      margin-top: 8px;
+    }
+
+    .definition {
+      padding: 9px 10px;
+      border: 1px solid #e1e7f1;
+      border-radius: 8px;
+      background: #f8fafd;
+    }
+
+    .definition strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    .definition span {
+      display: block;
+      color: #566179;
+      font-size: 11.8px;
+      line-height: 1.35;
+    }
+
+    .legend {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 18px;
+      height: 12px;
+      border-radius: 4px;
+      border: 1px solid #ccd4e3;
+    }
+
+    .hint {
+      position: absolute;
+      left: 16px;
+      bottom: 14px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #dce3ef;
+      color: var(--muted);
+      font-size: 12px;
+      box-shadow: 0 8px 20px rgba(22, 32, 51, 0.08);
+    }
+
+    @media (max-width: 980px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      aside {
+        display: none;
+      }
+      input {
+        width: 160px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Corvus Debrief Architecture Flow</h1>
+        <div class="subtitle">Engineering-style interactive map of the implemented spine and future-ready extension points.</div>
+      </div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search nodes, files, layers">
+        <button id="fit" title="Fit diagram">Fit</button>
+        <button id="zoomOut" title="Zoom out">-</button>
+        <button id="zoomIn" title="Zoom in">+</button>
+        <button id="futureToggle" class="active" title="Show or hide future placeholders">Future</button>
+        <button id="reset" title="Reset selection">Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="viewport" class="viewport">
+        <div id="canvas" class="canvas">
+          <svg id="edges" class="edges" viewBox="0 0 1900 1120" aria-hidden="true">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa8bf"></path>
+              </marker>
+              <marker id="arrowActive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f6f95"></path>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="hint">Drag canvas. Click a node to highlight connected flow.</div>
+      </section>
+
+      <aside>
+        <div class="panel-kicker" id="panelLayer">Architecture</div>
+        <div class="panel-title" id="panelTitle">Corvus Debrief</div>
+        <div class="panel-desc" id="panelDesc">
+          Click a node to inspect its role, inputs, outputs, and implementation status.
+          The main implemented path is work-order focused; future-ready records are shown without pretending they are fully built.
+        </div>
+
+        <div class="panel-section">
+          <h3>Selected Node</h3>
+          <ul id="panelFacts">
+            <li>Connectors fetch raw data.</li>
+            <li>Intake classifies and maps fields.</li>
+            <li>Domain agents produce compact findings.</li>
+            <li>The orchestrator protects LLM context size.</li>
+          </ul>
+        </div>
+
+        <div class="panel-section">
+          <h3 id="definitionTitle">How To Read This</h3>
+          <div class="definition-list" id="definitionList"></div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Legend</h3>
+          <div class="legend">
+            <div class="legend-row"><span class="swatch" style="background: var(--source); border-color: var(--source-border);"></span>Data source</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--connector); border-color: var(--connector-border);"></span>Connector</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--intake); border-color: var(--intake-border);"></span>Intake/mapping</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--canonical); border-color: var(--canonical-border);"></span>Canonical record</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--domain); border-color: var(--domain-border);"></span>Domain agent</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--orchestration); border-color: var(--orchestration-border);"></span>Orchestration/reasoning</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--output); border-color: var(--output-border);"></span>Output/memory</div>
+            <div class="legend-row"><span class="swatch" style="background: var(--future); border-color: var(--future-border); border-style: dashed;"></span>Future-ready placeholder</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const lanes = [
+      { id: 'source', title: 'Data Sources', x: 40 },
+      { id: 'connector', title: 'Connectors', x: 310 },
+      { id: 'intake', title: 'Intake', x: 580 },
+      { id: 'canonical', title: 'Canonical Records', x: 850 },
+      { id: 'domain', title: 'Domain Agents', x: 1120 },
+      { id: 'orchestration', title: 'Orchestration + Reasoning', x: 1390 },
+      { id: 'output', title: 'Output', x: 1660 }
+    ];
+
+    const nodes = [
+      { id: 'csv', layer: 'source', title: 'MES CSV Export', body: 'Current customer-friendly wedge for early design partner data.', y: 100, facts: ['File-based batch intake.', 'Best today when it is work-order shaped.', 'Can trigger mapping workflow on first run or schema change.'], definitions: [{term: 'Why it exists', text: 'CSV is the easiest first trust step. A customer can export a file before granting API or database access.'}, {term: 'Expected shape', text: 'Most robust when one row represents one work order, job, build, or WIP item.'}] },
+      { id: 'sqlite', layer: 'source', title: 'SQLite MES DB', body: 'Local database source for MES-style tables and tests.', y: 210, facts: ['Uses configured db_path and table_name.', 'Good for development and demos.'], definitions: [{term: 'Why it exists', text: 'Gives Corvus a structured database-style source without needing a customer system.'}] },
+      { id: 'scenario', layer: 'source', title: 'Built-in Scenarios', body: 'Demo floor data: normal, crisis, staffing, ACS.', y: 320, facts: ['No customer data required.', 'Useful for repeatable demos and tests.'], definitions: [{term: 'Why it exists', text: 'Scenarios make demos repeatable and protect the core logic from needing live data.'}] },
+      { id: 'apiSource', layer: 'source', title: 'Partner API', body: 'Future path for trusted design partners and automated polling.', y: 430, future: true, facts: ['API connector exists as a placeholder.', 'Real polling/auth strategy comes with design partners.'], definitions: [{term: 'Why it exists', text: 'Once trust exists, customers will prefer automated polling over manual CSV export.'}, {term: 'Not yet implemented', text: 'Authentication, polling cadence, retries, and payload-specific mapping are future work.'}] },
+
+      { id: 'factory', layer: 'connector', title: 'connectors/factory.py', body: 'Selects the connector by config and scenario flags.', y: 116, facts: ['Central connector entrypoint.', 'Keeps callers independent from source type.'], definitions: [{term: 'Responsibility', text: 'Turns config into the correct connector object.'}, {term: 'Boundary', text: 'The rest of Corvus should not need to know whether data came from CSV, SQLite, API, or scenario.'}] },
+      { id: 'csvConn', layer: 'connector', title: 'csv_connector.py', body: 'Reads mapped CSV rows into Corvus work-order fields.', y: 246, facts: ['Known fields become schema fields.', 'Unknown columns are preserved as extended data.'], definitions: [{term: 'Responsibility', text: 'Uses saved column_map from onboarding.yaml to convert each CSV row into work-order-shaped data.'}, {term: 'Extended fields', text: 'Any unmapped customer-specific column is kept under extended instead of discarded.'}] },
+      { id: 'sqliteConn', layer: 'connector', title: 'sqlite_connector.py', body: 'Queries MES-style tables for work orders and reports.', y: 376, facts: ['Supports bottleneck and at-risk queries.', 'Validates table names.'], definitions: [{term: 'Responsibility', text: 'Fetches build records from a local MES-style SQLite table.'}] },
+      { id: 'apiConn', layer: 'connector', title: 'api_connector.py', body: 'Mock API-shaped MES rows today.', y: 506, future: true, facts: ['Placeholder for future HTTP-backed source.', 'Should later support auth, polling cadence, and payload mapping.'], definitions: [{term: 'Responsibility', text: 'Eventually turns partner API responses into the same canonical intake path used by CSV.'}] },
+      { id: 'scenarioConn', layer: 'connector', title: 'scenarios/*', body: 'Scenario connectors return deterministic demo data.', y: 636, facts: ['ACS demo powers zero-setup flow.', 'Keeps demos independent from config files.'], definitions: [{term: 'Responsibility', text: 'Provides hardcoded manufacturing situations for demos and regression tests.'}] },
+
+      { id: 'classifier', layer: 'intake', title: 'source_classifier.py', body: 'Classifies export type from headers.', y: 94, facts: ['Currently header-driven.', 'Distinguishes work order, operation, quality, material, labor, equipment, unknown.'], definitions: [{term: 'Responsibility', text: 'Answers: what kind of manufacturing file or payload is this?'}, {term: 'Current depth', text: 'Uses header keywords today. Sample-row heuristics can be added later.'}] },
+      { id: 'registry', layer: 'intake', title: 'mapping_registry.py', body: 'Canonical fields, aliases, source metadata.', y: 224, facts: ['Owns work-order schema aliases.', 'Defines source type metadata and valid statuses.'], definitions: [{term: 'Responsibility', text: 'The vocabulary table for Corvus intake. This is where aliases like Job_ID, WO_ID, Work_Center, and Current_Status live.'}, {term: 'Why it matters', text: 'Prevents every connector or agent from inventing its own field names.'}] },
+      { id: 'schemaMapper', layer: 'intake', title: 'schema_mapper.py', body: 'Deterministic mapping and validation helpers.', y: 354, facts: ['Maps obvious headers before LLM usage.', 'Validates required fields and missing columns.'], definitions: [{term: 'Responsibility', text: 'Maps raw source headers to Corvus fields and validates the mapping before it is saved.'}, {term: 'Token discipline', text: 'Handles obvious matches in code so the LLM only helps when deterministic matching is not enough.'}] },
+      { id: 'mapCsv', layer: 'intake', title: 'tools/map_csv.py', body: 'CSV workflow with LLM fallback and fingerprint cache.', y: 484, facts: ['Runs classifier and schema mapper.', 'Falls back to LLM for unresolved fields.', 'Supports dry-run and non-interactive mode.'], definitions: [{term: 'Responsibility', text: 'The user-facing CSV onboarding tool. It classifies, maps, reviews, validates, and saves CSV mappings.'}, {term: 'Fingerprint cache', text: 'A header-based schema fingerprint prevents re-mapping the same CSV structure every run.'}] },
+      { id: 'onboarding', layer: 'intake', title: 'onboarding.yaml', body: 'Customer context and saved CSV mappings.', y: 614, facts: ['Stores company/site/team language.', 'Stores mapping fingerprint and status map.'], definitions: [{term: 'Responsibility', text: 'Stores customer-specific language, teams, thresholds, and CSV mappings.'}, {term: 'Status map', text: 'Normalizes customer statuses like Running or Stopped into Corvus statuses like In Progress or Blocked.'}] },
+
+      { id: 'workOrder', layer: 'canonical', title: 'WorkOrder', body: 'Implemented and active canonical record.', y: 116, facts: ['Normalizes work-order records.', 'Used by Work Order Agent today.'], definitions: [{term: 'Responsibility', text: 'The stable internal shape for jobs, builds, work orders, and WIP records.'}, {term: 'Key fields', text: 'build_id, station_id, operator_id, status, planned_end, needed_by_date, quantities, labor_hours, notes, extended.'}] },
+      { id: 'operation', layer: 'canonical', title: 'Operation', body: 'Defined for future routing and operation-step data.', y: 246, future: true, facts: ['Ready for operation/routing CSV or API intake.', 'Not deeply wired yet.'], definitions: [{term: 'Responsibility', text: 'Will represent routing steps, operation sequences, queues, and work-center level execution.'}] },
+      { id: 'qualityIssue', layer: 'canonical', title: 'QualityIssue', body: 'Defined for future QMS, NCR, MRB, inspection data.', y: 376, future: true, facts: ['Quality Lite does not yet ingest full QMS records.', 'Will matter for aerospace workflows.'], definitions: [{term: 'Responsibility', text: 'Will represent inspection failures, NCRs, MRB decisions, quality holds, defect codes, and owners.'}] },
+      { id: 'materialStatus', layer: 'canonical', title: 'MaterialStatus', body: 'Defined for future inventory, shortage, kitting data.', y: 506, future: true, facts: ['Materials Lite extracts clues today.', 'Full material source mapping comes later.'], definitions: [{term: 'Responsibility', text: 'Will represent shortages, kit readiness, inventory availability, expected receipts, and supplier context.'}] },
+      { id: 'laborAssignment', layer: 'canonical', title: 'LaborAssignment', body: 'Defined for future staffing, shifts, certifications.', y: 636, future: true, facts: ['Useful for aerospace certification and operator readiness.', 'Not deeply wired yet.'], definitions: [{term: 'Responsibility', text: 'Will represent operator availability, assignment, shift, skill, and certification readiness.'}] },
+
+      { id: 'workOrderAgent', layer: 'domain', title: 'work_order_agent.py', body: 'Normalizes work orders and computes production signals.', y: 138, facts: ['Deepest implemented domain agent.', 'Produces blocked, delayed, stalled, at-risk, unassigned, needs-decision signals.'], definitions: [{term: 'Responsibility', text: 'Owns the production execution view of the factory.'}, {term: 'Output', text: 'Returns evaluated builds, summary counts, signal groups, and findings for the debrief.'}] },
+      { id: 'qualityAgent', layer: 'domain', title: 'quality_lite_agent.py', body: 'Detects quality clues from notes and extended fields.', y: 328, facts: ['Lite implementation.', 'Finds QA holds, defects, NCR/MRB terms, yield/failure clues.'], definitions: [{term: 'Responsibility', text: 'Finds early quality risk signals without requiring a full QMS integration yet.'}, {term: 'Current limitation', text: 'It scans work-order notes and extended fields. It does not yet ingest standalone inspection/NCR tables.'}] },
+      { id: 'materialsAgent', layer: 'domain', title: 'materials_lite_agent.py', body: 'Detects material and kitting clues from notes and extended fields.', y: 518, facts: ['Lite implementation.', 'Finds shortages, broker buy, parts, kit/material terms.'], definitions: [{term: 'Responsibility', text: 'Finds early material readiness signals without requiring inventory or ERP integration yet.'}, {term: 'Current limitation', text: 'It scans work-order notes and extended fields. It does not yet ingest standalone inventory/kitting tables.'}] },
+
+      { id: 'orchestrator', layer: 'orchestration', title: 'debrief_orchestrator.py', body: 'Runs connector plus domain agents and builds compact context.', y: 160, facts: ['Coordinates the current architecture.', 'Keeps full builds top-level and domain contexts compact.'], definitions: [{term: 'Responsibility', text: 'The coordinator. It fetches records, runs domain agents, merges summaries/findings, and shapes context for the LLM tools.'}, {term: 'Context management', text: 'Keeps high-volume data out of the LLM where possible and sends compact domain findings instead.'}] },
+      { id: 'agentTools', layer: 'orchestration', title: 'agents/tools.py', body: 'LLM-callable tool functions.', y: 350, facts: ['get_build_metrics now calls DebriefOrchestrator.', 'Keeps the old LLM tool contract stable.'], definitions: [{term: 'Responsibility', text: 'Provides function tools that the debrief LLM can call.'}, {term: 'Compatibility', text: 'Existing tool names still work while internals move to the orchestrated architecture.'}] },
+      { id: 'debriefAgent', layer: 'orchestration', title: 'debrief_agent.py', body: 'LLM reasoning loop over curated tool outputs.', y: 540, facts: ['Runs think/tool/observe/final loop.', 'Uses deterministic facts from tools.'], definitions: [{term: 'Responsibility', text: 'Turns deterministic signals and findings into a human-readable debrief.'}, {term: 'Design rule', text: 'The LLM explains, prioritizes, and routes. It should not invent raw production metrics.'}] },
+
+      { id: 'report', layer: 'output', title: 'debrief_template.py', body: 'Formats meeting-ready markdown report.', y: 126, facts: ['Adds header, summary, team checklists.', 'Extracts action items by team.'], definitions: [{term: 'Responsibility', text: 'Takes the final debrief text and customer onboarding context, then generates a meeting-ready report.'}] },
+      { id: 'console', layer: 'output', title: 'Console Output', body: 'Immediate report visibility in CLI.', y: 276, facts: ['Useful for demos and local runs.'], definitions: [{term: 'Responsibility', text: 'Shows the generated report immediately after the run.'}] },
+      { id: 'reports', layer: 'output', title: 'reports/', body: 'Saved markdown report artifacts.', y: 426, facts: ['One report per run.', 'Not intended as primary database.'], definitions: [{term: 'Responsibility', text: 'Stores generated markdown reports for review and sharing.'}] },
+      { id: 'memory', layer: 'output', title: 'shared/memory/log.json', body: 'Rolling compact run history.', y: 576, facts: ['Stores recent blocked/at-risk counts and flags.', 'Feeds future pattern context.'], definitions: [{term: 'Responsibility', text: 'Keeps lightweight run history that can inform future debrief context without storing entire raw datasets.'}] }
+    ];
+
+    const edges = [
+      ['csv', 'factory'], ['sqlite', 'factory'], ['scenario', 'factory'], ['apiSource', 'factory'],
+      ['factory', 'csvConn'], ['factory', 'sqliteConn'], ['factory', 'scenarioConn'], ['factory', 'apiConn'],
+      ['csv', 'mapCsv', 'first run or schema changed'],
+      ['mapCsv', 'classifier'], ['mapCsv', 'registry'], ['mapCsv', 'schemaMapper'], ['schemaMapper', 'onboarding'], ['onboarding', 'csvConn'],
+      ['csvConn', 'orchestrator'], ['sqliteConn', 'orchestrator'], ['scenarioConn', 'orchestrator'], ['apiConn', 'orchestrator'],
+      ['orchestrator', 'workOrderAgent'], ['workOrderAgent', 'workOrder'],
+      ['workOrderAgent', 'qualityAgent'], ['workOrderAgent', 'materialsAgent'],
+      ['qualityAgent', 'qualityIssue'], ['materialsAgent', 'materialStatus'],
+      ['operation', 'orchestrator', 'future routing intake'], ['laborAssignment', 'orchestrator', 'future labor intake'],
+      ['workOrderAgent', 'orchestrator'], ['qualityAgent', 'orchestrator'], ['materialsAgent', 'orchestrator'],
+      ['orchestrator', 'agentTools'], ['agentTools', 'debriefAgent'], ['debriefAgent', 'report'],
+      ['report', 'console'], ['report', 'reports'], ['orchestrator', 'memory']
+    ];
+
+    const layerMeta = {
+      source: ['Data Sources', 'Raw data entry points. CSV and scenarios are most useful today; API is future-ready.'],
+      connector: ['Connector Layer', 'Fetches raw records while hiding source-specific details from the rest of Corvus.'],
+      intake: ['Intake Layer', 'Classifies source type, maps fields, validates schema, and stores customer mappings.'],
+      canonical: ['Canonical Records', 'Stable manufacturing concepts that prevent every customer system from leaking into every agent.'],
+      domain: ['Domain Agents', 'Scoped domain workers that produce findings and evidence. Work order is deep; quality/materials are lite.'],
+      orchestration: ['Orchestration + Reasoning', 'Coordinates domain agents and exposes compact context to the LLM.'],
+      output: ['Output Layer', 'Turns findings into reports and stores compact run memory.']
+    };
+
+    const defaultDefinitions = [
+      { term: 'Solid arrows', text: 'Implemented data/control flow used by the current debrief path.' },
+      { term: 'Dashed arrows or dashed boxes', text: 'Future-ready seams that exist conceptually or as light placeholders, but are not deep product workflows yet.' },
+      { term: 'Canonical record', text: 'A stable internal data shape that prevents each customer system from leaking its own schema into every agent.' },
+      { term: 'Domain agent', text: 'A scoped worker responsible for one manufacturing domain, such as work orders, quality, or materials.' },
+      { term: 'Orchestrator', text: 'The coordinator that runs connectors and domain agents, then prepares compact context for the LLM.' }
+    ];
+
+    const laneWidth = 238;
+    const nodeWidth = 196;
+    const nodeHeight = 86;
+    const laneTop = 38;
+    const laneHeight = 1018;
+    const canvas = document.getElementById('canvas');
+    const edgeSvg = document.getElementById('edges');
+    const viewport = document.getElementById('viewport');
+
+    let scale = 0.72;
+    let tx = 24;
+    let ty = 18;
+    let selected = null;
+    let showFuture = true;
+
+    const nodeById = new Map(nodes.map(node => [node.id, node]));
+    const laneById = new Map(lanes.map(lane => [lane.id, lane]));
+
+    function init() {
+      drawLanes();
+      drawNodes();
+      drawEdges();
+      fit();
+      bindEvents();
+      updatePanel(null);
+    }
+
+    function drawLanes() {
+      lanes.forEach(lane => {
+        const el = document.createElement('div');
+        el.className = `lane ${lane.id}`;
+        el.style.left = `${lane.x}px`;
+        el.style.height = `${laneHeight}px`;
+        el.innerHTML = `<div class="lane-title">${lane.title}</div>`;
+        canvas.appendChild(el);
+      });
+    }
+
+    function drawNodes() {
+      nodes.forEach(node => {
+        const lane = laneById.get(node.layer);
+        const el = document.createElement('div');
+        el.id = `node-${node.id}`;
+        el.className = `node ${node.layer}${node.future ? ' future' : ''}`;
+        el.dataset.nodeId = node.id;
+        el.style.left = `${lane.x + 21}px`;
+        el.style.top = `${node.y}px`;
+        el.style.height = `${nodeHeight}px`;
+        el.innerHTML = `
+          <div class="node-title">${node.title}</div>
+          <div class="node-body">${node.body}</div>
+          <span class="badge">${node.future ? 'future-ready' : 'implemented'}</span>
+        `;
+        el.addEventListener('click', event => {
+          event.stopPropagation();
+          selectNode(node.id);
+        });
+        canvas.appendChild(el);
+      });
+    }
+
+    function nodePoint(id, side) {
+      const node = nodeById.get(id);
+      const lane = laneById.get(node.layer);
+      const x = lane.x + 21;
+      const y = node.y;
+      if (side === 'left') return [x, y + nodeHeight / 2];
+      if (side === 'right') return [x + nodeWidth, y + nodeHeight / 2];
+      if (side === 'top') return [x + nodeWidth / 2, y];
+      return [x + nodeWidth / 2, y + nodeHeight];
+    }
+
+    function connectionSides(from, to) {
+      const a = nodeById.get(from);
+      const b = nodeById.get(to);
+      const ax = laneById.get(a.layer).x;
+      const bx = laneById.get(b.layer).x;
+      if (ax <= bx) return ['right', 'left'];
+      return ['left', 'right'];
+    }
+
+    function pathFor(from, to) {
+      const [fromSide, toSide] = connectionSides(from, to);
+      const [x1, y1] = nodePoint(from, fromSide);
+      const [x2, y2] = nodePoint(to, toSide);
+      const dx = Math.max(34, Math.abs(x2 - x1) * 0.45);
+      const m1 = fromSide === 'right' ? x1 + dx : x1 - dx;
+      const m2 = toSide === 'left' ? x2 - dx : x2 + dx;
+      return `M ${x1} ${y1} C ${m1} ${y1}, ${m2} ${y2}, ${x2} ${y2}`;
+    }
+
+    function drawEdges() {
+      edges.forEach(([from, to, label], index) => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const future = nodeById.get(from).future || nodeById.get(to).future || Boolean(label && label.includes('future'));
+        path.setAttribute('id', `edge-${index}`);
+        path.setAttribute('class', `edge${future ? ' future' : ''}`);
+        path.setAttribute('d', pathFor(from, to));
+        path.setAttribute('marker-end', 'url(#arrow)');
+        path.dataset.from = from;
+        path.dataset.to = to;
+        edgeSvg.appendChild(path);
+
+        if (label) {
+          const [x1, y1] = nodePoint(from, connectionSides(from, to)[0]);
+          const [x2, y2] = nodePoint(to, connectionSides(from, to)[1]);
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('class', 'edge-label');
+          text.setAttribute('x', (x1 + x2) / 2);
+          text.setAttribute('y', (y1 + y2) / 2 - 8);
+          text.setAttribute('text-anchor', 'middle');
+          text.textContent = label;
+          edgeSvg.appendChild(text);
+        }
+      });
+    }
+
+    function selectNode(id) {
+      selected = id;
+      const related = new Set([id]);
+      edges.forEach(([from, to]) => {
+        if (from === id || to === id) {
+          related.add(from);
+          related.add(to);
+        }
+      });
+
+      document.querySelectorAll('.node').forEach(el => {
+        const isRelated = related.has(el.dataset.nodeId);
+        el.classList.toggle('selected', el.dataset.nodeId === id);
+        el.classList.toggle('dim', !isRelated);
+      });
+
+      document.querySelectorAll('.edge').forEach(el => {
+        const active = el.dataset.from === id || el.dataset.to === id;
+        el.classList.toggle('active', active);
+        el.classList.toggle('dim', !active);
+        el.setAttribute('marker-end', active ? 'url(#arrowActive)' : 'url(#arrow)');
+      });
+
+      updatePanel(nodeById.get(id));
+    }
+
+    function resetSelection() {
+      selected = null;
+      document.querySelectorAll('.node').forEach(el => {
+        el.classList.remove('selected', 'dim');
+      });
+      document.querySelectorAll('.edge').forEach(el => {
+        el.classList.remove('active', 'dim');
+        el.setAttribute('marker-end', 'url(#arrow)');
+      });
+      updatePanel(null);
+      document.getElementById('search').value = '';
+      applySearch('');
+    }
+
+    function updatePanel(node) {
+      const layerEl = document.getElementById('panelLayer');
+      const titleEl = document.getElementById('panelTitle');
+      const descEl = document.getElementById('panelDesc');
+      const factsEl = document.getElementById('panelFacts');
+
+      if (!node) {
+        layerEl.textContent = 'Architecture';
+        titleEl.textContent = 'Corvus Debrief';
+        descEl.textContent = 'Click a node to inspect its role, inputs, outputs, and implementation status. The main implemented path is work-order focused; future-ready records are shown without pretending they are fully built.';
+        factsEl.innerHTML = [
+          'Connectors fetch raw data.',
+          'Intake classifies and maps fields.',
+          'Domain agents produce compact findings.',
+          'The orchestrator protects LLM context size.'
+        ].map(item => `<li>${item}</li>`).join('');
+        renderDefinitions('How To Read This', defaultDefinitions);
+        return;
+      }
+
+      const [layerTitle, layerDesc] = layerMeta[node.layer];
+      layerEl.textContent = layerTitle;
+      titleEl.textContent = node.title;
+      descEl.textContent = `${node.body} ${node.future ? 'This is a future-ready placeholder, not a deep implementation yet.' : layerDesc}`;
+      factsEl.innerHTML = node.facts.map(item => `<li>${item}</li>`).join('');
+      renderDefinitions('Definitions', node.definitions || defaultDefinitions);
+    }
+
+    function renderDefinitions(title, definitions) {
+      document.getElementById('definitionTitle').textContent = title;
+      document.getElementById('definitionList').innerHTML = definitions.map(item => `
+        <div class="definition">
+          <strong>${item.term}</strong>
+          <span>${item.text}</span>
+        </div>
+      `).join('');
+    }
+
+    function applySearch(query) {
+      const q = query.trim().toLowerCase();
+      document.querySelectorAll('.node').forEach(el => {
+        const node = nodeById.get(el.dataset.nodeId);
+        const text = [node.title, node.body, node.layer, ...(node.facts || [])].join(' ').toLowerCase();
+        const match = !q || text.includes(q);
+        el.style.display = match ? '' : 'none';
+      });
+      document.querySelectorAll('.edge').forEach(el => {
+        const fromVisible = document.getElementById(`node-${el.dataset.from}`).style.display !== 'none';
+        const toVisible = document.getElementById(`node-${el.dataset.to}`).style.display !== 'none';
+        el.style.display = fromVisible && toVisible ? '' : 'none';
+      });
+    }
+
+    function toggleFuture() {
+      showFuture = !showFuture;
+      document.getElementById('futureToggle').classList.toggle('active', showFuture);
+      document.querySelectorAll('.node.future').forEach(el => {
+        el.style.visibility = showFuture ? 'visible' : 'hidden';
+      });
+      document.querySelectorAll('.edge.future').forEach(el => {
+        el.style.visibility = showFuture ? 'visible' : 'hidden';
+      });
+    }
+
+    function setTransform() {
+      canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    }
+
+    function fit() {
+      const vw = viewport.clientWidth;
+      const vh = viewport.clientHeight;
+      scale = Math.min(vw / 1900, vh / 1120) * 0.96;
+      tx = (vw - 1900 * scale) / 2;
+      ty = 18;
+      setTransform();
+    }
+
+    function zoom(delta) {
+      scale = Math.max(0.35, Math.min(1.4, scale + delta));
+      setTransform();
+    }
+
+    function bindEvents() {
+      document.getElementById('fit').addEventListener('click', fit);
+      document.getElementById('zoomOut').addEventListener('click', () => zoom(-0.08));
+      document.getElementById('zoomIn').addEventListener('click', () => zoom(0.08));
+      document.getElementById('reset').addEventListener('click', resetSelection);
+      document.getElementById('futureToggle').addEventListener('click', toggleFuture);
+      document.getElementById('search').addEventListener('input', event => applySearch(event.target.value));
+      viewport.addEventListener('click', resetSelection);
+      window.addEventListener('resize', fit);
+
+      let dragging = false;
+      let lastX = 0;
+      let lastY = 0;
+      viewport.addEventListener('pointerdown', event => {
+        dragging = true;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        viewport.classList.add('dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+      viewport.addEventListener('pointermove', event => {
+        if (!dragging) return;
+        tx += event.clientX - lastX;
+        ty += event.clientY - lastY;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        setTransform();
+      });
+      viewport.addEventListener('pointerup', () => {
+        dragging = false;
+        viewport.classList.remove('dragging');
+      });
+      viewport.addEventListener('wheel', event => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoom(event.deltaY > 0 ? -0.05 : 0.05);
+      }, { passive: false });
+    }
+
+    init();
+  </script>
+</body>
+</html>
