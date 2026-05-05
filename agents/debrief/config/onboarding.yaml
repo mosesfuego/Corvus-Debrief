@@ -24,8 +24,8 @@ teams:
   - at-risk orders
   meeting: "Weekly Planning \u2014 Monday 9:00am"
 csv_connector:
-  file_path: data/manufacturing_log.csv
-  mapping_fingerprint: e15e18ab2165
+  file_path: shared/data/manufacturing_log.csv
+  mapping_fingerprint: f2c7d4b40b72
   column_map:
     build_id: Job_ID
     station_id: Work_Center

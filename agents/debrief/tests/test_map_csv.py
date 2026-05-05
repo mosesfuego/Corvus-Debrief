@@ -57,6 +57,31 @@ def test_heuristics_resolve_common_columns():
     assert mapping["notes"]["csv_column"] == "Comments"
 
 
+def test_mapping_falls_back_when_llm_unavailable(monkeypatch):
+    def fail_llm(*_args, **_kwargs):
+        raise RuntimeError("model retired")
+
+    monkeypatch.setattr(map_csv, "propose_mapping_with_llm", fail_llm)
+
+    proposal = map_csv.build_mapping_proposal(
+        ["Job_ID", "Work_Center", "Status", "Timestamp", "Comments"],
+        [
+            {
+                "Job_ID": "WO-1",
+                "Work_Center": "SMT",
+                "Status": "Running",
+                "Timestamp": "2026-01-01T08:00:00",
+                "Comments": "ok",
+            }
+        ],
+        {"agents": {"api_key": "fake"}},
+    )
+
+    assert proposal["mapping"]["build_id"]["csv_column"] == "Job_ID"
+    assert proposal["mapping"]["status"]["csv_column"] == "Status"
+    assert proposal["status_map"]["Running"] == "In Progress"
+
+
 def test_validate_mapping_rejects_missing_required_field():
     clean_map, _, issues = map_csv.validate_mapping(
         {"status": "Status"},
@@ -142,4 +167,3 @@ def test_run_dry_run_does_not_write_onboarding(tmp_path):
     )
 
     assert onboarding_path.read_text() == original
-

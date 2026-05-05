@@ -1,6 +1,6 @@
 """
 Corvus CSV Column Mapper.
-Reads any CSV, uses LLM to propose column mapping to Corvus schema,
+Reads any CSV, uses heuristics plus optional LLM help to map to Corvus schema,
 auto-accepts high confidence fields, prompts on uncertain ones,
 saves confirmed mapping + fingerprint to onboarding.yaml.
 
@@ -36,6 +36,7 @@ from openai import OpenAI
 from intake.mapping_registry import (
     REQUIRED_WORK_ORDER_FIELDS,
     WORK_ORDER_SCHEMA,
+    normalize_status,
     normalize_name,
     resolve_header,
 )
@@ -50,6 +51,18 @@ from utils.config import load_config, load_onboarding
 CORVUS_SCHEMA = WORK_ORDER_SCHEMA
 REQUIRED_FIELDS = REQUIRED_WORK_ORDER_FIELDS
 CONFIDENCE_THRESHOLD = 0.85
+
+
+def _llm_error_summary(exc: Exception) -> str:
+    """Return a concise LLM failure message without dumping a full traceback."""
+    status = getattr(exc, "status_code", None)
+    response = getattr(exc, "response", None)
+    if status is None and response is not None:
+        status = getattr(response, "status_code", None)
+    message = str(exc)
+    if status:
+        return f"LLM mapping call failed with status {status}: {message}"
+    return f"LLM mapping call failed: {message}"
 
 
 def get_csv_fingerprint(file_path: str) -> str:
@@ -112,6 +125,35 @@ def merge_mapping_proposals(base: dict, override: dict, fields: list[str]) -> di
     return merged
 
 
+def infer_status_map(
+    mapping: dict,
+    sample_rows: list[dict],
+    headers: list[str],
+) -> dict:
+    """Infer obvious MES status normalization from sampled row values."""
+    status_info = mapping.get("mapping", {}).get("status", {})
+    status_col = resolve_header(status_info.get("csv_column"), headers)
+    if not status_col:
+        return mapping.get("status_map", {}) or {}
+
+    inferred = {}
+    for row in sample_rows:
+        raw_status = (row.get(status_col) or "").strip()
+        if not raw_status:
+            continue
+        normalized = normalize_status(raw_status)
+        if normalized != raw_status:
+            inferred[raw_status] = normalized
+
+    clean_existing = {}
+    for raw_status, normalized_status in (mapping.get("status_map") or {}).items():
+        normalized = normalize_status(normalized_status)
+        if normalized != raw_status:
+            clean_existing[raw_status] = normalized
+
+    return {**inferred, **clean_existing}
+
+
 def propose_mapping_with_llm(
     headers: list[str],
     sample_rows: list[dict],
@@ -135,7 +177,7 @@ def propose_mapping_with_llm(
         api_key=api_key,
         base_url=agent_config.get("base_url")
     )
-    model = agent_config.get("model", "moonshotai/kimi-k2.5")
+    model = agent_config.get("model", "moonshotai/kimi-k2.6")
     fields_to_map = fields_to_map or list(CORVUS_SCHEMA)
     schema = {field: CORVUS_SCHEMA[field] for field in fields_to_map}
 
@@ -245,9 +287,11 @@ Return JSON in this format:
             print("[CORVUS ERROR] Could not recover JSON")
             raise
 
-    except Exception as e:
-        print("\n[CORVUS ERROR]:")
-        traceback.print_exc()
+    except Exception as exc:
+        print(f"\n[CORVUS] {_llm_error_summary(exc)}")
+        if os.environ.get("CORVUS_DEBUG"):
+            print("\n[CORVUS DEBUG]:")
+            traceback.print_exc()
         raise
 
 
@@ -282,6 +326,7 @@ def display_and_confirm_mapping(
     mapping = proposal.get("mapping", {})
     status_map = proposal.get("status_map", {})
     unmapped = proposal.get("unmapped_columns", [])
+    yes = yes or not sys.stdin.isatty()
 
     confirmed_column_map = {}
     auto_accepted = []
@@ -458,6 +503,7 @@ def build_mapping_proposal(
 
     if not unresolved:
         print("[CORVUS] Heuristic mapper resolved all schema fields.\n")
+        proposal["status_map"] = infer_status_map(proposal, sample_rows, headers)
         return proposal
 
     print(
@@ -477,14 +523,20 @@ def build_mapping_proposal(
                 if info.get("csv_column")
             },
         )
-    except EnvironmentError:
+    except Exception:
         required_missing = [f for f in REQUIRED_FIELDS if f in unresolved]
         if required_missing:
             raise
-        print("[CORVUS] No LLM API key found; using heuristic mapping only.\n")
+        print(
+            "[CORVUS] Required fields are covered by heuristics; "
+            "using heuristic mapping only.\n"
+        )
+        proposal["status_map"] = infer_status_map(proposal, sample_rows, headers)
         return proposal
 
-    return merge_mapping_proposals(proposal, llm_proposal, unresolved)
+    merged = merge_mapping_proposals(proposal, llm_proposal, unresolved)
+    merged["status_map"] = infer_status_map(merged, sample_rows, headers)
+    return merged
 
 
 def run(

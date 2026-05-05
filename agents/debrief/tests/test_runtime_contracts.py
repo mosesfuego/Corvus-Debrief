@@ -14,6 +14,7 @@ for path in (str(SRC_DIR), str(SHARED_DIR), str(PROJECT_ROOT)):
 
 from connectors.api_connector import APIMESConnector
 from connectors.csv_connector import CSVMESConnector
+from intake.mapping_registry import normalize_status
 from utils.config import load_config
 
 
@@ -86,3 +87,36 @@ def test_csv_at_risk_uses_datetime_comparison(tmp_path):
     )
 
     assert connector.get_at_risk_report() == []
+
+
+def test_csv_connector_normalizes_common_mes_statuses(tmp_path):
+    csv_path = tmp_path / "builds.csv"
+    headers = ["Job", "Status"]
+    rows = [
+        {"Job": "WO-RUN", "Status": "Running"},
+        {"Job": "WO-STOP", "Status": "Stopped"},
+        {"Job": "WO-BACKLOG", "Status": "Backlog"},
+    ]
+    with csv_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    onboarding = {
+        "csv_connector": {
+            "column_map": {
+                "build_id": "Job",
+                "status": "Status",
+            }
+        }
+    }
+    connector = CSVMESConnector(
+        {"mes_type": "csv"},
+        onboarding,
+        file_path=str(csv_path),
+    )
+
+    statuses = [build["status"] for build in connector.fetch_builds()]
+
+    assert statuses == ["In Progress", "Blocked", "Pending"]
+    assert normalize_status("Changeover") == "In Progress"

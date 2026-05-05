@@ -15,6 +15,7 @@ import csv
 import os
 from collections import defaultdict
 from connectors.base import BaseMESConnector
+from intake.mapping_registry import normalize_status
 
 
 OPTIONAL_FIELDS = [
@@ -143,7 +144,10 @@ class CSVMESConnector(BaseMESConnector):
                         build[field] = 0.0
 
                 elif field == "status":
-                    build[field] = self.status_map.get(raw_value, raw_value)
+                    build[field] = self.status_map.get(
+                        raw_value,
+                        normalize_status(raw_value),
+                    )
 
                 else:
                     build[field] = raw_value if raw_value else None

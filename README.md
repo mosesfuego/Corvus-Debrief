@@ -80,7 +80,7 @@ mes_type: "csv"
 
 agents:
   provider: "nim"
-  model: "moonshotai/kimi-k2.5"
+  model: "moonshotai/kimi-k2.6"
   api_key: ${NIM_API_KEY}
   base_url: "https://integrate.api.nvidia.com/v1"
 

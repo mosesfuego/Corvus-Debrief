@@ -71,7 +71,7 @@ def build_demo_config() -> dict:
         "scenario": "acs",
         "agents": {
             "provider": os.environ.get("CORVUS_DEMO_PROVIDER", "nim"),
-            "model": os.environ.get("CORVUS_DEMO_MODEL", "moonshotai/kimi-k2.5"),
+            "model": os.environ.get("CORVUS_DEMO_MODEL", "moonshotai/kimi-k2.6"),
             "api_key": (
                 os.environ.get("NIM_API_KEY")
                 or os.environ.get("OPENAI_API_KEY")
@@ -176,7 +176,7 @@ def ensure_csv_mapping(
 
     print("[CORVUS] No current column mapping found for this CSV.")
     print("[CORVUS] Running auto-mapper now...\n")
-    run_mapper(csv_path, onboarding_path)
+    run_mapper(csv_path, onboarding_path, yes=True)
     return load_onboarding(onboarding_path)
 
 

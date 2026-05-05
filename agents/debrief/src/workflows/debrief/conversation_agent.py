@@ -221,7 +221,7 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
         api_key=agent_config["api_key"],
         base_url=agent_config.get("base_url")
     )
-    model = agent_config.get("model", "moonshotai/kimi-k2.5")
+    model = agent_config.get("model", "moonshotai/kimi-k2.6")
 
     # build customer context from onboarding
     terminology = onboarding.get("terminology", {})

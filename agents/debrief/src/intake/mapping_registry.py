@@ -131,6 +131,25 @@ SOURCE_TYPE_KEYWORDS = {
 
 VALID_STATUSES = {"Pending", "In Progress", "Completed", "Blocked", "Paused"}
 REQUIRED_WORK_ORDER_FIELDS = SOURCE_TYPES["work_order"]["required_fields"]
+STATUS_ALIASES = {
+    "active": "In Progress",
+    "backlog": "Pending",
+    "blocked": "Blocked",
+    "changeover": "In Progress",
+    "complete": "Completed",
+    "completed": "Completed",
+    "done": "Completed",
+    "hold": "Blocked",
+    "in_progress": "In Progress",
+    "in progress": "In Progress",
+    "paused": "Paused",
+    "pending": "Pending",
+    "queued": "Pending",
+    "running": "In Progress",
+    "stopped": "Blocked",
+    "warning": "In Progress",
+    "wip": "In Progress",
+}
 
 
 def normalize_name(value: str) -> str:
@@ -148,9 +167,18 @@ def resolve_header(csv_col: str | None, headers: list[str]) -> str | None:
     return normalized_headers.get(normalize_name(csv_col))
 
 
+def normalize_status(value: str | None) -> str:
+    """Normalize common MES status language to the Corvus status set."""
+    if not value:
+        return "Unknown"
+    if value in VALID_STATUSES:
+        return value
+    normalized = normalize_name(str(value)).replace("_", " ")
+    return STATUS_ALIASES.get(normalized, str(value))
+
+
 def aliases_for(source_type: str) -> dict:
     """Return deterministic aliases for a source type."""
     if source_type == "work_order":
         return COMMON_ALIASES
     return {}
-
