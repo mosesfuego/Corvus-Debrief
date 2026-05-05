@@ -32,13 +32,17 @@ for _p in (_SHARED_DIR, _PROJECT_ROOT):
         sys.path.append(_p)
 
 import yaml
-from openai import OpenAI
 from intake.mapping_registry import (
     REQUIRED_WORK_ORDER_FIELDS,
     WORK_ORDER_SCHEMA,
     normalize_status,
     normalize_name,
     resolve_header,
+)
+from llm.provider_router import (
+    LLMProviderUnavailable,
+    chat_completion_with_fallback,
+    has_available_provider,
 )
 from intake.schema_mapper import (
     propose_mapping_with_heuristics,
@@ -165,19 +169,11 @@ def propose_mapping_with_llm(
     Ask LLM to propose column mapping from customer CSV to Corvus schema.
     Returns mapping with confidence scores.
     """
-    agent_config = config.get("agents", {})
-    api_key = agent_config.get("api_key")
-    if not api_key:
+    if not has_available_provider(config):
         raise EnvironmentError(
             "Missing LLM API key for unresolved CSV mapping fields. "
             "Set NIM_API_KEY or provide the mapping manually."
         )
-
-    client = OpenAI(
-        api_key=api_key,
-        base_url=agent_config.get("base_url")
-    )
-    model = agent_config.get("model", "moonshotai/kimi-k2.6")
     fields_to_map = fields_to_map or list(CORVUS_SCHEMA)
     schema = {field: CORVUS_SCHEMA[field] for field in fields_to_map}
 
@@ -227,24 +223,22 @@ Return JSON in this format:
 
     try:
         request = {
-            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
             "max_tokens": 4096,
             "top_p": 0.1,
-            "extra_body": {"chat_template_kwargs": {"thinking": False}},
             "response_format": {"type": "json_object"},
         }
         try:
-            response = client.chat.completions.create(**request)
+            response = chat_completion_with_fallback(config, request)
         except TypeError:
             request.pop("response_format", None)
-            response = client.chat.completions.create(**request)
+            response = chat_completion_with_fallback(config, request)
         except Exception as exc:
             if "response_format" not in str(exc):
                 raise
             request.pop("response_format", None)
-            response = client.chat.completions.create(**request)
+            response = chat_completion_with_fallback(config, request)
 
         if not response or not response.choices:
             raise ValueError("Empty response from LLM")

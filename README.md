@@ -69,7 +69,8 @@ pip install -r requirements.txt
 
 Create a `.env` file at project root:
 ```
-NIM_API_KEY=your_api_key_here
+MOONSHOT_API_KEY=your_moonshot_or_kimi_key_here
+NIM_API_KEY=your_nvidia_nim_key_here
 ```
 
 **Step 2 — Configure your system:**
@@ -79,10 +80,22 @@ Edit `agents/debrief/config/config.yaml`:
 mes_type: "csv"
 
 agents:
-  provider: "nim"
+  provider: "nvidia_nim"
   model: "moonshotai/kimi-k2.6"
   api_key: ${NIM_API_KEY}
   base_url: "https://integrate.api.nvidia.com/v1"
+
+llm_providers:
+  - name: "moonshot_kimi"
+    rank: 1
+    model: "kimi-k2.6"
+    api_key: ${MOONSHOT_API_KEY}
+    base_url: "https://api.moonshot.ai/v1"
+  - name: "nvidia_nim"
+    rank: 2
+    model: "moonshotai/kimi-k2.6"
+    api_key: ${NIM_API_KEY}
+    base_url: "https://integrate.api.nvidia.com/v1"
 
 domain_agents:
   enabled:

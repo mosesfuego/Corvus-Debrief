@@ -70,7 +70,7 @@ def build_demo_config() -> dict:
         "mes_type": "scenario",
         "scenario": "acs",
         "agents": {
-            "provider": os.environ.get("CORVUS_DEMO_PROVIDER", "nim"),
+            "provider": os.environ.get("CORVUS_DEMO_PROVIDER", "nvidia_nim"),
             "model": os.environ.get("CORVUS_DEMO_MODEL", "moonshotai/kimi-k2.6"),
             "api_key": (
                 os.environ.get("NIM_API_KEY")
@@ -82,6 +82,31 @@ def build_demo_config() -> dict:
                 "https://integrate.api.nvidia.com/v1"
             ),
         },
+        "llm_providers": [
+            {
+                "name": "moonshot_kimi",
+                "rank": 1,
+                "model": os.environ.get("MOONSHOT_MODEL", "kimi-k2.6"),
+                "api_key": os.environ.get("MOONSHOT_API_KEY", ""),
+                "base_url": os.environ.get(
+                    "MOONSHOT_BASE_URL",
+                    "https://api.moonshot.ai/v1",
+                ),
+            },
+            {
+                "name": "nvidia_nim",
+                "rank": 2,
+                "model": os.environ.get("NIM_MODEL", "moonshotai/kimi-k2.6"),
+                "api_key": os.environ.get("NIM_API_KEY", ""),
+                "base_url": os.environ.get(
+                    "NIM_BASE_URL",
+                    "https://integrate.api.nvidia.com/v1",
+                ),
+                "extra_body": {
+                    "chat_template_kwargs": {"thinking": False},
+                },
+            },
+        ],
         "reporting": {
             "output_dir": "./reports",
             "format": "console",

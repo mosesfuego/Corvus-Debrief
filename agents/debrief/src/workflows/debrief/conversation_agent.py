@@ -6,7 +6,11 @@ human-readable debrief.
 """
 
 import json
-from openai import OpenAI
+from llm.provider_router import (
+    LLMProviderUnavailable,
+    chat_completion_with_fallback,
+    has_available_provider,
+)
 from workflows.debrief.tools import (
     get_build_metrics,
     get_bottleneck_report,
@@ -207,21 +211,13 @@ def run_debrief_agent(config: dict, onboarding: dict) -> str:
     think → tool → observe → think → recommend
     Returns final debrief string.
     """
-    agent_config = config.get("agents", {})
-
-    if not agent_config.get("api_key"):
+    if not has_available_provider(config):
         if config.get("_demo"):
             print("[CORVUS] No LLM API key found — using built-in demo reasoning.\n")
             return run_deterministic_demo_debrief(config, onboarding)
         raise EnvironmentError(
-            "Missing LLM API key. Set NIM_API_KEY or OPENAI_API_KEY."
+            "Missing LLM API key. Set MOONSHOT_API_KEY, NIM_API_KEY, or OPENAI_API_KEY."
         )
-
-    client = OpenAI(
-        api_key=agent_config["api_key"],
-        base_url=agent_config.get("base_url")
-    )
-    model = agent_config.get("model", "moonshotai/kimi-k2.6")
 
     # build customer context from onboarding
     terminology = onboarding.get("terminology", {})
@@ -260,14 +256,15 @@ CUSTOMER CONTEXT:
     print("[CORVUS] Starting debrief...\n")
 
     while True:
-        response = client.chat.completions.create(
-            model=model,
-            tools=TOOL_SCHEMAS,
-            messages=messages,
-            temperature=1.00,
-            max_tokens=8192,
-            extra_body={"chat_template_kwargs": {"thinking": False}},
-        )
+        try:
+            response = chat_completion_with_fallback(config, {
+                "tools": TOOL_SCHEMAS,
+                "messages": messages,
+                "temperature": 1.00,
+                "max_tokens": 8192,
+            })
+        except LLMProviderUnavailable as exc:
+            raise RuntimeError(f"All configured LLM providers failed: {exc}") from exc
 
         message = response.choices[0].message
         finish_reason = response.choices[0].finish_reason
