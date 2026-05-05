@@ -84,6 +84,14 @@ agents:
   api_key: ${NIM_API_KEY}
   base_url: "https://integrate.api.nvidia.com/v1"
 
+domain_agents:
+  enabled:
+    - work_order
+    - materials
+    - quality
+    - schedule
+    - labor
+
 reporting:
   output_dir: "./reports"
   format: "console"
@@ -294,14 +302,17 @@ CSV / API / SQLite / Scenario
    Canonical Records
    (work orders, operations, quality, materials, labor)
         |
+   Agent Runtime
+   (shared context, result, evidence, registry)
+        |
    Domain Agents
-   (work order, quality-lite, materials-lite)
+   (work order, materials, quality, schedule, labor)
         |
-   Debrief Orchestrator
-   (builds compact context + findings)
+   Debrief Workflow
+   (orchestrates agents + ranks findings)
         |
-   Debrief Agent
-   (think -> tool -> observe -> think loop)
+   Conversation Agent
+   (LLM-facing debrief narrator)
         |
    Report Generator
    (routes findings to teams)
@@ -314,16 +325,22 @@ CSV / API / SQLite / Scenario
 | File | Purpose |
 |------|---------|
 | `agents/debrief/src/main.py` | Entry point, CLI |
-| `agents/debrief/src/agents/debrief_agent.py` | Agent reasoning loop |
-| `agents/debrief/src/agents/tools.py` | Tools the agent can call |
+| `agents/debrief/src/workflows/debrief/conversation_agent.py` | LLM-facing debrief narrator |
+| `agents/debrief/src/workflows/debrief/orchestrator.py` | Coordinates connector + domain agents |
+| `agents/debrief/src/workflows/debrief/tools.py` | Tools the conversation agent can call |
+| `agents/debrief/src/agent_runtime/registry.py` | Enables and orders domain agents |
+| `agents/debrief/src/agent_runtime/result.py` | Shared finding/result contract |
 | `agents/debrief/src/intake/source_classifier.py` | Classifies manufacturing exports |
 | `agents/debrief/src/intake/mapping_registry.py` | Canonical field aliases and source metadata |
 | `agents/debrief/src/intake/schema_mapper.py` | Shared deterministic mapping helpers |
 | `agents/debrief/src/canonical/work_order.py` | Canonical work-order record |
-| `agents/debrief/src/domain_agents/work_order_agent.py` | Work-order signal and finding agent |
-| `agents/debrief/src/domain_agents/quality_lite_agent.py` | Early quality signal extraction |
-| `agents/debrief/src/domain_agents/materials_lite_agent.py` | Early material/kitting signal extraction |
-| `agents/debrief/src/orchestration/debrief_orchestrator.py` | Coordinates connector + domain agents |
+| `agents/debrief/src/domain_agents/work_order/agent.py` | Work-order signal and finding agent |
+| `agents/debrief/src/domain_agents/materials/agent.py` | Early material/kitting signal extraction |
+| `agents/debrief/src/domain_agents/quality/agent.py` | Early quality signal extraction |
+| `agents/debrief/src/domain_agents/schedule/agent.py` | Lightweight schedule-risk extraction |
+| `agents/debrief/src/domain_agents/labor/agent.py` | Lightweight labor and coverage extraction |
+| `agents/debrief/src/agents/debrief_agent.py` | Compatibility wrapper for old imports |
+| `agents/debrief/src/orchestration/debrief_orchestrator.py` | Compatibility wrapper for old imports |
 | `agents/debrief/src/tools/map_csv.py` | LLM-assisted CSV column mapper |
 | `agents/debrief/src/connectors/csv_connector.py` | Flexible CSV connector |
 | `agents/debrief/src/connectors/factory.py` | Connector selector with caching |
@@ -442,6 +459,7 @@ corvus-mfg/
 │       ├── tests/
 │       └── src/
 │           ├── main.py
+│           ├── agent_runtime/
 │           ├── agents/
 │           ├── analytics/
 │           ├── canonical/
@@ -451,7 +469,8 @@ corvus-mfg/
 │           ├── memory/
 │           ├── orchestration/
 │           ├── reporting/
-│           └── tools/
+│           ├── tools/
+│           └── workflows/
 ├── shared/
 │   ├── utils/
 │   ├── memory/

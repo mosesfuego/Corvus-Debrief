@@ -21,9 +21,9 @@ from tools.map_csv import (
     run as run_mapper,
 )
 from reporting.debrief_template import DebriefGenerator
-from agents.debrief_agent import run_debrief_agent
-from agents.tools import get_build_metrics
 from memory.memory import save_run
+from workflows.debrief.conversation_agent import run_debrief_agent
+from workflows.debrief.tools import get_build_metrics
 
 
 def parse_args():

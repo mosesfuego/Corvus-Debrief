@@ -1,4 +1,4 @@
-"""Compatibility wrapper for the packaged work-order agent."""
+"""Work-order domain agent package."""
 
 from domain_agents.work_order.agent import WorkOrderAgent
 

@@ -15,11 +15,17 @@ sys.path.insert(0, _SHARED_DIR)
 sys.path.insert(0, _SRC_DIR)
 
 from canonical.work_order import WorkOrder
+from agent_runtime.context import AgentContext
+from agent_runtime.registry import AgentRegistry
 from domain_agents.materials_lite_agent import MaterialsLiteAgent
 from domain_agents.quality_lite_agent import QualityLiteAgent
+from domain_agents.labor.agent import LaborAgent
+from domain_agents.schedule.agent import ScheduleAgent
+from domain_agents.work_order.agent import WorkOrderAgent
 from intake.source_classifier import classify_headers
 from intake.schema_mapper import propose_mapping_with_heuristics
 from orchestration.debrief_orchestrator import DebriefOrchestrator
+from workflows.debrief.orchestrator import DebriefOrchestrator as WorkflowOrchestrator
 
 
 def test_source_classifier_identifies_work_order_headers():
@@ -82,6 +88,41 @@ def test_lite_domain_agents_extract_cross_domain_findings():
     assert materials["findings"][0]["owner"] == "Materials"
 
 
+def test_domain_agents_share_standard_result_shape():
+    context = AgentContext.from_builds(
+        [
+            {
+                "build_id": "WO-LABOR",
+                "station_id": "SMT",
+                "operator_id": "",
+                "status": "In Progress",
+                "notes": "Operator certification expired",
+            }
+        ],
+        config={},
+        onboarding={"thresholds": {"stall_minutes": 20}},
+    )
+
+    work_order = WorkOrderAgent({}, {}).evaluate(context)
+    context.builds = work_order["builds"]
+    schedule = ScheduleAgent().evaluate(context)
+    labor = LaborAgent().evaluate(context)
+
+    for result in (work_order, schedule, labor):
+        assert {"domain", "summary", "findings"}.issubset(result)
+        assert isinstance(result["findings"], list)
+
+    assert labor["summary"]["finding_count"] > 0
+
+
+def test_agent_registry_uses_configured_agents_with_work_order_first():
+    registry = AgentRegistry({
+        "domain_agents": {"enabled": ["quality", "materials"]}
+    })
+
+    assert registry.enabled_names() == ["work_order", "quality", "materials"]
+
+
 def test_debrief_orchestrator_returns_legacy_and_domain_context():
     config = {"mes_type": "scenario", "scenario": "acs"}
     onboarding = {
@@ -97,3 +138,16 @@ def test_debrief_orchestrator_returns_legacy_and_domain_context():
     assert "builds" not in context["domains"]["work_order"]
     assert context["domains"]["quality"]["findings"]
     assert context["domains"]["materials"]["findings"]
+    assert context["domains"]["schedule"]["domain"] == "schedule"
+    assert context["domains"]["labor"]["domain"] == "labor"
+    assert context["agent_order"] == [
+        "work_order",
+        "materials",
+        "quality",
+        "schedule",
+        "labor",
+    ]
+
+
+def test_legacy_orchestrator_import_uses_workflow_orchestrator():
+    assert DebriefOrchestrator is WorkflowOrchestrator

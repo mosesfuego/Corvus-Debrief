@@ -1,5 +1,6 @@
-"""Compatibility wrapper for the debrief workflow orchestrator."""
+"""Debrief workflow package."""
 
 from workflows.debrief.orchestrator import DebriefOrchestrator
 
 __all__ = ["DebriefOrchestrator"]
+

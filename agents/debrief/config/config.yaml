@@ -7,6 +7,14 @@ agents:
   api_key: ${NIM_API_KEY}
   base_url: "https://integrate.api.nvidia.com/v1"
 
+domain_agents:
+  enabled:
+    - work_order
+    - materials
+    - quality
+    - schedule
+    - labor
+
 reporting:
   output_dir: "./reports"
   format: "console"

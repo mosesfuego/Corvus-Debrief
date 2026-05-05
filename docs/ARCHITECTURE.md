@@ -1,8 +1,9 @@
 # Corvus Debrief Architecture
 
-Corvus Debrief is a command-line manufacturing debrief agent. It connects to a
-data source, normalizes work order records, computes deterministic production
-signals, lets an LLM reason over those facts, then writes a meeting-ready report.
+Corvus Debrief is a command-line manufacturing debrief workflow. It connects to
+a data source, normalizes work order records, runs specialized manufacturing
+domain agents, lets an LLM narrate and prioritize those facts, then writes a
+meeting-ready report.
 
 ## Runtime Flow
 
@@ -17,17 +18,18 @@ signals, lets an LLM reason over those facts, then writes a meeting-ready report
    mapping helpers across CSV/API/database intake.
 5. `canonical/` defines normalized manufacturing records such as work orders,
    operations, quality issues, material status, and labor assignments.
-6. `orchestration/debrief_orchestrator.py` runs domain agents over connector
-   data and builds a compact debrief context.
-7. `domain_agents/work_order_agent.py` enriches builds with deterministic
-   signals such as blocked, delayed, stalled, at-risk, unassigned, and needs
-   decision. Lightweight quality/material agents extract early cross-domain
-   signals from notes and extended fields.
-8. `agents/debrief_agent.py` exposes those facts as LLM tools and asks the
-   model for a debrief.
-9. `reporting/debrief_template.py` wraps the debrief in a standard report and
+6. `agent_runtime/` defines the shared context/result/evidence/registry
+   contract that lets domain agents plug into the workflow consistently.
+7. `workflows/debrief/orchestrator.py` runs enabled domain agents over
+   connector data and builds a compact debrief context.
+8. `domain_agents/*/agent.py` contains specialized manufacturing analysts:
+   work order, materials, quality, schedule, and labor.
+9. `workflows/debrief/conversation_agent.py` exposes those facts as LLM tools
+   and asks the model for a debrief. `agents/debrief_agent.py` remains as a
+   compatibility import path.
+10. `reporting/debrief_template.py` wraps the debrief in a standard report and
    extracts routed action items for each configured team.
-10. `memory/memory.py` stores a rolling run history in `shared/memory/log.json`.
+11. `memory/memory.py` stores a rolling run history in `shared/memory/log.json`.
 
 ## Important Boundaries
 
@@ -73,12 +75,47 @@ canonical/
   labor_assignment.py
 
 domain_agents/
-  work_order_agent.py
-  quality_lite_agent.py
-  materials_lite_agent.py
+  work_order/
+    agent.py
+    rules.py
+    prompts.py
+    README.md
+  materials/
+    agent.py
+    rules.py
+    prompts.py
+    README.md
+  quality/
+    agent.py
+    rules.py
+    prompts.py
+    README.md
+  schedule/
+    agent.py
+    rules.py
+    prompts.py
+    README.md
+  labor/
+    agent.py
+    rules.py
+    prompts.py
+    README.md
 
-orchestration/
-  debrief_orchestrator.py
+agent_runtime/
+  base.py
+  context.py
+  result.py
+  registry.py
+  evidence.py
+  confidence.py
+
+workflows/
+  debrief/
+    orchestrator.py
+    conversation_agent.py
+    tools.py
+    templates/
+      daily_debrief.md
 
 reporting/
   debrief_template.py
@@ -86,7 +123,9 @@ reporting/
 
 The architectural rule is: connectors fetch raw data, intake maps/classifies
 that data, canonical models define stable records, domain agents produce compact
-findings, and the debrief orchestrator coordinates the flow.
+findings, and the debrief workflow coordinates the flow. Legacy import paths
+under `agents/` and `orchestration/` are kept as wrappers while the codebase
+migrates to the clearer workflow/domain-agent structure.
 
 ## Configuration
 
@@ -115,6 +154,9 @@ Add a deeper business domain by creating a domain agent that returns:
 - `summary`
 - `findings`
 - compact evidence references
+
+Register it in `agent_runtime/registry.py`, then enable it in
+`agents/debrief/config/config.yaml` under `domain_agents.enabled`.
 
 Add a new demo by creating a scenario connector in
 `connectors/scenarios/` and adding it to `SCENARIOS`.
