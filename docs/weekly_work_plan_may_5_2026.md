@@ -37,7 +37,9 @@ Thinking tasks need focus and should happen in the morning. Doing tasks are mech
 ## Low Hanging Fruit: May 5
 
 1. Send Kabiru's message: done.
-2. Write the wedge sentence: 15 minutes.
+2. Write the wedge sentence: 15 minutes. : Corvus replaces the chaos of raw Manufacturing data with 
+clear, team-specific intelligence — so your ops 
+leaders make decisions, not interpretations.
 3. Create the lead tracker: 15 minutes.
 4. Add 15 existing LinkedIn connections to the tracker: 10 minutes.
 
