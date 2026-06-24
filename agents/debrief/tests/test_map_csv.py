@@ -105,6 +105,45 @@ def test_validate_mapping_ignores_missing_llm_column():
     assert "'build_id' maps to missing CSV column 'NotAColumn'" in issues
 
 
+def test_source_confidence_summarizes_csv_mapping(tmp_path):
+    csv_path = tmp_path / "builds.csv"
+    write_csv(
+        csv_path,
+        ["Job_ID", "Status", "Work_Center", "Custom_Note"],
+        [
+            {
+                "Job_ID": "WO-1",
+                "Status": "Running",
+                "Work_Center": "Line 1",
+                "Custom_Note": "watch this",
+            }
+        ],
+    )
+    onboarding = {
+        "csv_connector": {
+            "mapping_fingerprint": "abc123",
+            "column_map": {
+                "build_id": "Job_ID",
+                "status": "Status",
+                "station_id": "Work_Center",
+            },
+            "status_map": {"Running": "In Progress"},
+        }
+    }
+
+    summary = map_csv.build_source_confidence(str(csv_path), onboarding)
+
+    assert summary["source_type"] == "work_order"
+    assert summary["missing_critical_fields"] == []
+    assert summary["mapped_fields"] == {
+        "build_id": "Job_ID",
+        "status": "Status",
+        "station_id": "Work_Center",
+    }
+    assert summary["unmapped_columns"] == ["Custom_Note"]
+    assert summary["mapping_coverage"] == 0.27
+
+
 def test_display_and_confirm_blocks_required_missing_in_yes_mode():
     proposal = {
         "mapping": {

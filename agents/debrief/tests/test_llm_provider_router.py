@@ -70,24 +70,24 @@ def test_legacy_agent_config_is_used_when_no_ranked_list_exists():
     assert providers[0]["name"] == "legacy"
 
 
-def test_gemini_can_rank_ahead_of_paid_fallbacks():
+def test_nim_kimi_can_rank_ahead_of_quota_limited_fallbacks():
     config = {
         "llm_providers": [
             {
                 "name": "moonshot_kimi",
-                "rank": 2,
+                "rank": 3,
                 "model": "kimi-k2.6",
                 "api_key": "moonshot-key",
             },
             {
                 "name": "google_gemini",
-                "rank": 1,
+                "rank": 2,
                 "model": "gemini-2.5-flash",
                 "api_key": "gemini-key",
             },
             {
                 "name": "nvidia_nim",
-                "rank": 3,
+                "rank": 1,
                 "model": "moonshotai/kimi-k2.6",
                 "api_key": "nim-key",
             },
@@ -97,7 +97,7 @@ def test_gemini_can_rank_ahead_of_paid_fallbacks():
     providers = get_ranked_providers(config)
 
     assert [p["name"] for p in providers] == [
+        "nvidia_nim",
         "google_gemini",
         "moonshot_kimi",
-        "nvidia_nim",
     ]

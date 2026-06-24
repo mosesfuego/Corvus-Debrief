@@ -15,7 +15,9 @@ sys.path.insert(0, _PROJECT_ROOT)
 
 from utils.config import load_config, load_dotenv, load_onboarding
 from tools.map_csv import (
+    build_source_confidence,
     check_existing_mapping,
+    format_source_confidence,
     get_csv_fingerprint,
     read_csv_sample,
     run as run_mapper,
@@ -85,28 +87,8 @@ def build_demo_config() -> dict:
         },
         "llm_providers": [
             {
-                "name": "google_gemini",
-                "rank": 1,
-                "model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
-                "api_key": os.environ.get("GEMINI_API_KEY", ""),
-                "base_url": os.environ.get(
-                    "GEMINI_BASE_URL",
-                    "https://generativelanguage.googleapis.com/v1beta/openai/",
-                ),
-            },
-            {
-                "name": "moonshot_kimi",
-                "rank": 2,
-                "model": os.environ.get("MOONSHOT_MODEL", "kimi-k2.6"),
-                "api_key": os.environ.get("MOONSHOT_API_KEY", ""),
-                "base_url": os.environ.get(
-                    "MOONSHOT_BASE_URL",
-                    "https://api.moonshot.ai/v1",
-                ),
-            },
-            {
                 "name": "nvidia_nim",
-                "rank": 3,
+                "rank": 1,
                 "model": os.environ.get("NIM_MODEL", "moonshotai/kimi-k2.6"),
                 "api_key": os.environ.get("NIM_API_KEY", ""),
                 "base_url": os.environ.get(
@@ -116,6 +98,26 @@ def build_demo_config() -> dict:
                 "extra_body": {
                     "chat_template_kwargs": {"thinking": False},
                 },
+            },
+            {
+                "name": "google_gemini",
+                "rank": 2,
+                "model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+                "api_key": os.environ.get("GEMINI_API_KEY", ""),
+                "base_url": os.environ.get(
+                    "GEMINI_BASE_URL",
+                    "https://generativelanguage.googleapis.com/v1beta/openai/",
+                ),
+            },
+            {
+                "name": "moonshot_kimi",
+                "rank": 3,
+                "model": os.environ.get("MOONSHOT_MODEL", "kimi-k2.6"),
+                "api_key": os.environ.get("MOONSHOT_API_KEY", ""),
+                "base_url": os.environ.get(
+                    "MOONSHOT_BASE_URL",
+                    "https://api.moonshot.ai/v1",
+                ),
             },
         ],
         "reporting": {
@@ -251,7 +253,13 @@ def main():
             onboarding = ensure_csv_mapping(args.csv, onboarding_path, onboarding)
             config["mes_type"] = "csv"
             config["csv_file_path"] = args.csv
+            config["_source_confidence"] = build_source_confidence(
+                args.csv,
+                onboarding,
+            )
             print(f"[CORVUS] Running against CSV: {args.csv}\n")
+            print(format_source_confidence(config["_source_confidence"]))
+            print()
 
         else:
             print(f"[CORVUS] Running with mes_type: {config.get('mes_type', 'not set')}\n")

@@ -12,6 +12,8 @@ Usage (from repository root):
     python agents/debrief/src/tools/map_csv.py shared/data/input.csv --yes --dry-run
 """
 
+from __future__ import annotations
+
 import csv
 import sys
 import json
@@ -481,6 +483,95 @@ def check_existing_mapping(
 
     print("[CORVUS] Existing mapping is current — skipping LLM call.\n")
     return True
+
+
+def build_source_confidence(csv_path: str, onboarding: dict) -> dict:
+    """Summarize how confidently Corvus understands a CSV source."""
+    headers, sample_rows = read_csv_sample(csv_path)
+    classification = classify_rows(headers, sample_rows)
+    csv_config = onboarding.get("csv_connector", {})
+    column_map = csv_config.get("column_map", {})
+    status_map = csv_config.get("status_map", {})
+
+    clean_map, _, issues = validate_mapping(
+        column_map,
+        status_map,
+        headers,
+        require_required=False,
+    )
+    mapped_columns = set(clean_map.values())
+    unmapped_columns = [h for h in headers if h not in mapped_columns]
+    missing_critical_fields = [
+        field for field in REQUIRED_FIELDS
+        if field not in clean_map
+    ]
+    missing_mapped_columns = [
+        issue for issue in issues
+        if "maps to missing CSV column" in issue
+    ]
+    schema_field_count = len(CORVUS_SCHEMA) or 1
+    mapping_coverage = round(len(clean_map) / schema_field_count, 2)
+
+    return {
+        "csv_path": csv_path,
+        "source_type": classification["source_type"],
+        "source_confidence": classification["confidence"],
+        "source_scores": classification.get("scores", {}),
+        "mapping_fingerprint": csv_config.get("mapping_fingerprint"),
+        "mapped_fields": clean_map,
+        "unmapped_columns": unmapped_columns,
+        "missing_critical_fields": missing_critical_fields,
+        "missing_mapped_columns": missing_mapped_columns,
+        "mapping_coverage": mapping_coverage,
+        "mapped_field_count": len(clean_map),
+        "schema_field_count": len(CORVUS_SCHEMA),
+    }
+
+
+def format_source_confidence(summary: dict) -> str:
+    """Render source confidence details for console and report output."""
+    mapped_fields = summary.get("mapped_fields", {})
+    unmapped_columns = summary.get("unmapped_columns", [])
+    missing_critical = summary.get("missing_critical_fields", [])
+    missing_mapped = summary.get("missing_mapped_columns", [])
+    source_confidence = int(summary.get("source_confidence", 0) * 100)
+    mapping_coverage = int(summary.get("mapping_coverage", 0) * 100)
+
+    lines = [
+        "SOURCE CONFIDENCE",
+        "-" * 60,
+        (
+            f"Detected source: {summary.get('source_type', 'unknown')} "
+            f"({source_confidence}% confidence)"
+        ),
+        (
+            "Mapping coverage: "
+            f"{summary.get('mapped_field_count', 0)}/"
+            f"{summary.get('schema_field_count', 0)} fields "
+            f"({mapping_coverage}%)"
+        ),
+        "Mapped fields:",
+    ]
+
+    if mapped_fields:
+        for field, csv_col in mapped_fields.items():
+            lines.append(f"  - {field}: {csv_col}")
+    else:
+        lines.append("  - None")
+
+    lines.append(
+        "Unmapped CSV columns: "
+        + (", ".join(unmapped_columns) if unmapped_columns else "None")
+    )
+    lines.append(
+        "Missing critical fields: "
+        + (", ".join(missing_critical) if missing_critical else "None")
+    )
+    if missing_mapped:
+        lines.append("Missing mapped columns:")
+        lines.extend(f"  - {issue}" for issue in missing_mapped)
+
+    return "\n".join(lines)
 
 
 def build_mapping_proposal(

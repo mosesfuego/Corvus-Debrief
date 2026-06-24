@@ -87,21 +87,21 @@ agents:
   base_url: "https://integrate.api.nvidia.com/v1"
 
 llm_providers:
-  - name: "google_gemini"
+  - name: "nvidia_nim"
     rank: 1
+    model: "moonshotai/kimi-k2.6"
+    api_key: ${NIM_API_KEY}
+    base_url: "https://integrate.api.nvidia.com/v1"
+  - name: "google_gemini"
+    rank: 2
     model: "gemini-2.5-flash"
     api_key: ${GEMINI_API_KEY}
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
   - name: "moonshot_kimi"
-    rank: 2
+    rank: 3
     model: "kimi-k2.6"
     api_key: ${MOONSHOT_API_KEY}
     base_url: "https://api.moonshot.ai/v1"
-  - name: "nvidia_nim"
-    rank: 3
-    model: "moonshotai/kimi-k2.6"
-    api_key: ${NIM_API_KEY}
-    base_url: "https://integrate.api.nvidia.com/v1"
 
 domain_agents:
   enabled:

@@ -1,5 +1,7 @@
 """Schema mapping helpers shared by CSV and future API/database intake."""
 
+from __future__ import annotations
+
 from intake.mapping_registry import (
     WORK_ORDER_SCHEMA,
     VALID_STATUSES,
@@ -78,4 +80,3 @@ def validate_mapping(
             )
 
     return clean_map, clean_status_map, issues
-

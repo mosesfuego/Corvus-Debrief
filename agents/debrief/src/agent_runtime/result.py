@@ -1,5 +1,7 @@
 """Result structures shared by Corvus domain agents."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -96,4 +98,3 @@ def sort_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ),
         reverse=True,
     )
-

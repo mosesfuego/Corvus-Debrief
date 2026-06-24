@@ -2,8 +2,22 @@
 import os
 import sqlite3
 import json
+import sys
 from datetime import datetime
 import pytest
+
+_THIS_FILE = os.path.abspath(__file__)
+_TESTS_DIR = os.path.dirname(_THIS_FILE)
+_AGENT_ROOT = os.path.dirname(_TESTS_DIR)
+_SRC_DIR = os.path.join(_AGENT_ROOT, "src")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_AGENT_ROOT))
+_SHARED_DIR = os.path.join(_PROJECT_ROOT, "shared")
+
+sys.path.insert(0, _PROJECT_ROOT)
+sys.path.insert(0, _SHARED_DIR)
+sys.path.insert(0, _SRC_DIR)
+
+from reporting.debrief_template import DebriefGenerator
 
 
 class TestReportGeneration:
@@ -61,6 +75,36 @@ class TestReportGeneration:
         # Should be parseable
         parsed = datetime.fromisoformat(ts)
         assert parsed is not None
+
+    def test_report_includes_source_confidence_when_available(self):
+        config = {
+            "_source_confidence": {
+                "source_type": "work_order",
+                "source_confidence": 0.75,
+                "mapped_fields": {
+                    "build_id": "Job_ID",
+                    "status": "Status",
+                },
+                "unmapped_columns": ["Customer_Note"],
+                "missing_critical_fields": [],
+                "mapping_coverage": 0.18,
+                "mapped_field_count": 2,
+                "schema_field_count": 11,
+            },
+            "reporting": {"output_dir": "./reports"},
+        }
+        onboarding = {
+            "company": "TestCo",
+            "site": "Plant 1",
+            "teams": [],
+        }
+
+        report = DebriefGenerator(config, onboarding).generate("All clear.")
+
+        assert "SOURCE CONFIDENCE" in report
+        assert "Detected source: work_order (75% confidence)" in report
+        assert "build_id: Job_ID" in report
+        assert "Unmapped CSV columns: Customer_Note" in report
 
 
 class TestOutputFormats:

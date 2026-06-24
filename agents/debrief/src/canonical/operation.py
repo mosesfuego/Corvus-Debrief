@@ -1,5 +1,7 @@
 """Canonical operation/routing step record."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
@@ -30,4 +32,3 @@ class Operation:
             actual_end=row.get("actual_end"),
             extended=row.get("extended") or {},
         )
-

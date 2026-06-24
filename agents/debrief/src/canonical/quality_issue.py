@@ -1,5 +1,7 @@
 """Canonical quality issue record."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
@@ -28,4 +30,3 @@ class QualityIssue:
             notes=row.get("notes") or row.get("comments") or "",
             extended=row.get("extended") or {},
         )
-

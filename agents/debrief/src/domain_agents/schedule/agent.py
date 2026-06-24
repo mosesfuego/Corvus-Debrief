@@ -1,5 +1,7 @@
 """Lightweight schedule risk agent."""
 
+from __future__ import annotations
+
 from agent_runtime.base import DomainAgent
 from agent_runtime.context import AgentContext, ensure_agent_context
 from agent_runtime.result import AgentResult, Finding
@@ -67,4 +69,3 @@ def _evidence(build: dict) -> list[str]:
         if build.get(field):
             evidence.append(f"{field}: {build[field]}")
     return evidence
-

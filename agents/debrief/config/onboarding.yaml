@@ -24,16 +24,20 @@ teams:
   - at-risk orders
   meeting: "Weekly Planning \u2014 Monday 9:00am"
 csv_connector:
-  file_path: shared/data/manufacturing_log.csv
-  mapping_fingerprint: f2c7d4b40b72
+  file_path: shared/data/snack_factory_batch_log.csv
+  mapping_fingerprint: 744fc1b51c67
   column_map:
-    build_id: Job_ID
-    station_id: Work_Center
-    operator_id: Operator_ID
-    start_time: Timestamp
-    status: Status
-    notes: Comments
+    build_id: Batch_No
+    station_id: Production_Line
+    operator_id: Crew_Lead
+    planned_end: Planned_Finish
+    needed_by_date: Ship_By
+    target_quantity: Planned_Units
+    completed_quantity: Good_Units
+    labor_hours: Labor_Hrs
+    status: Run_State
+    notes: Remarks
+    start_time: Event_Time
   status_map:
     Running: In Progress
     Stopped: Blocked
-    Changeover: In Progress

@@ -1,5 +1,7 @@
 """Lightweight quality signal extraction from work-order-like rows."""
 
+from __future__ import annotations
+
 from agent_runtime.base import DomainAgent
 from agent_runtime.context import AgentContext, ensure_agent_context
 from agent_runtime.result import AgentResult, Finding
@@ -63,4 +65,3 @@ def _evidence(build: dict) -> list[str]:
         if extended.get(key):
             evidence.append(f"{key}: {extended[key]}")
     return evidence
-

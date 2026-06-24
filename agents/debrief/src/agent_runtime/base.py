@@ -1,5 +1,7 @@
 """Base protocol for Corvus manufacturing domain agents."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 from agent_runtime.context import AgentContext
@@ -14,4 +16,3 @@ class DomainAgent(ABC):
     @abstractmethod
     def evaluate(self, context: AgentContext | list[dict]) -> dict:
         """Evaluate the available manufacturing context."""
-

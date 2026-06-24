@@ -9,6 +9,8 @@ authenticated customer can resolve the onboarding profile while the UI contract
 stays the same: GET/POST /api/onboarding.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os

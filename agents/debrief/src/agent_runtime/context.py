@@ -1,5 +1,7 @@
 """Runtime context passed to domain agents."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -40,4 +42,3 @@ def ensure_agent_context(
     if isinstance(context_or_builds, AgentContext):
         return context_or_builds
     return AgentContext.from_builds(context_or_builds, config, onboarding)
-

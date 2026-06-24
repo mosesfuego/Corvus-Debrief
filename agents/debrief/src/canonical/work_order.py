@@ -1,5 +1,7 @@
 """Canonical work order record."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
@@ -64,4 +66,3 @@ def _float(value) -> float:
         return float(value) if value not in (None, "") else 0.0
     except (TypeError, ValueError):
         return 0.0
-

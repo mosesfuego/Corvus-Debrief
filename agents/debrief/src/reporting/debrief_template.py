@@ -5,6 +5,7 @@ Uses onboarding watch_signals to route findings to the right teams.
 
 from datetime import datetime
 import os
+from tools.map_csv import format_source_confidence
 
 class DebriefGenerator:
 
@@ -31,6 +32,11 @@ class DebriefGenerator:
         lines.append(f"    {date_str} | {time_str}")
         lines.append("=" * 60)
         lines.append("")
+
+        source_confidence = self.config.get("_source_confidence")
+        if source_confidence:
+            lines.append(format_source_confidence(source_confidence))
+            lines.append("")
 
         # --- intelligence summary ---
         lines.append("INTELLIGENCE SUMMARY")

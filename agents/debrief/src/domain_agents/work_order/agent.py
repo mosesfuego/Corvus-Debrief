@@ -1,5 +1,7 @@
 """Work-order domain agent."""
 
+from __future__ import annotations
+
 from agent_runtime.base import DomainAgent
 from agent_runtime.context import AgentContext, ensure_agent_context
 from agent_runtime.result import AgentResult, Finding
@@ -129,4 +131,3 @@ def _build_summary(build: dict) -> dict:
     if build.get("extended"):
         summary["extended"] = build["extended"]
     return summary
-

@@ -1,5 +1,7 @@
 """Canonical field registry and deterministic mapping metadata."""
 
+from __future__ import annotations
+
 import re
 
 

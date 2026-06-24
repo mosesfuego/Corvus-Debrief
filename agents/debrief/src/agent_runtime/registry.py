@@ -1,5 +1,7 @@
 """Registry for enabled manufacturing domain agents."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 
 from domain_agents.labor.agent import LaborAgent
@@ -56,4 +58,3 @@ class AgentRegistry:
             if name in enabled:
                 ordered.append(AGENT_FACTORIES[name](self.config, self.onboarding))
         return ordered
-

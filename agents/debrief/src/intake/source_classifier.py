@@ -1,5 +1,7 @@
 """Classify manufacturing data sources from headers and samples."""
 
+from __future__ import annotations
+
 from intake.mapping_registry import SOURCE_TYPE_KEYWORDS, normalize_name
 
 
@@ -35,4 +37,3 @@ def classify_headers(headers: list[str]) -> dict:
 def classify_rows(headers: list[str], rows: list[dict] | None = None) -> dict:
     """Classify rows; currently header-driven with room for sample heuristics."""
     return classify_headers(headers)
-
